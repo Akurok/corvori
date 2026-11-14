@@ -30,6 +30,12 @@ export const PLAN_TOOL_TOGGLE = 'plan'
 /** Built-in client-executed tool used to pause for human decisions. */
 export const ASK_TOOL_NAME = 'ask'
 
+/** Built-in client-executed tool that hands the next turn to another agent. */
+export const YIELD_TOOL_NAME = 'yield'
+
+/** Default time a yield request waits before it is accepted on its own. */
+export const DEFAULT_YIELD_CONFIRM_MS = 5000
+
 /** Built-in tool for reading attachments. */
 export const READ_ATTACHMENT_TOOL_NAME = 'read_attachment'
 

@@ -34,6 +34,9 @@ export async function cancelScheduledExecution(
   if (state.phase === 'pending' || state.phase === 'retrying') {
     await ctx.scheduler.cancel(state.jobId)
   }
+  if (state.phase === 'awaiting_input' && state.yield?.jobId) {
+    await ctx.scheduler.cancel(state.yield.jobId)
+  }
 }
 
 type StreamOutput = {

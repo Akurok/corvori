@@ -155,6 +155,9 @@ export type TokenUsage = Infer<typeof V.tokenUsageValidator>
 export type StreamCommand = Infer<typeof V.streamCommandValidator>
 export type StreamState = Infer<typeof V.streamStateValidator>
 export type ActiveStream = Infer<typeof V.activeStreamValidator>
+export type YieldRequest = Infer<typeof V.yieldRequestValidator>
+export type ResolveYieldArgs = Infer<typeof V.resolveYieldArgsValidator>
+export type YieldRequestArgs = Infer<typeof V.yieldRequestArgsValidator>
 export type RunningStream = Omit<Doc<'streams'>, 'state'> & {
   state: Extract<StreamState, { phase: 'streaming' }>
 }

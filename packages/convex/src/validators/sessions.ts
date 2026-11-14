@@ -22,6 +22,7 @@ export const sessionSettingsValidator = v.object({
   slowModeMs: v.optional(v.number()), // minimum gap between a user's sends
   agentDebounceMs: v.optional(v.number()), // delay before the agent responds
   passiveSend: v.optional(v.boolean()), // invoking the agent requires a modifier
+  yieldConfirmMs: v.optional(v.number()), // wait before a yield is accepted
 })
 
 /** Prompt interpreter variables for one session. */

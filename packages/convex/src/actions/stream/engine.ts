@@ -61,6 +61,7 @@ export async function _stream(ctx: ActionCtx, execution: StreamExecutionArgs) {
         awaitingApproval,
         awaitingQuestions,
         awaitingTasks,
+        awaitingYield,
       } = await consumeProviderStep(ctx, execution, setup, windowDeadline)
       if (shouldContinue === null) return
 
@@ -96,7 +97,9 @@ export async function _stream(ctx: ActionCtx, execution: StreamExecutionArgs) {
       // this safe seam before suspending, retrying, or starting another step.
       if (shouldContinue && (await honorSoftStop(ctx, execution))) return
 
-      if (awaitingApproval || awaitingQuestions || awaitingTasks) {
+      const needsSuspension =
+        awaitingApproval || awaitingQuestions || awaitingTasks || awaitingYield
+      if (needsSuspension) {
         const suspended = await ctx.runMutation(internal.streams._suspendStep, {
           ...execution,
         })

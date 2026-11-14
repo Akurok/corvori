@@ -101,6 +101,12 @@ const ask = inline`
   sense. The user may choose options, add context, write a different answer,
   or skip a question.`
 
+const yieldTurn = inline`
+  Yield the next turn to another agent in this conversation. Pass the name of
+  the agent who should respond next. People in the conversation can change or
+  cancel the request. Call this last and on its own: your turn ends when the
+  request is accepted.`
+
 const task = [
   inline`
     Delegate a task to a sub-agent that works in its own separate session in the
@@ -178,6 +184,7 @@ export const TOOL_DESCRIPTIONS = {
   write_todo,
   edit_todo,
   ask,
+  yield: yieldTurn,
   task,
   skills,
   read_skill,

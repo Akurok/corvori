@@ -1,6 +1,7 @@
 import { SettingsList } from '@/components/ui'
 import { useActiveSession } from '@/hooks/chat'
 import { useUpdateSessionSettings } from '@/hooks/chat/sharing'
+import { DEFAULT_YIELD_CONFIRM_MS } from '@cv/core/const'
 
 const toSeconds = (ms: number | undefined) => (ms ?? 0) / 1000
 
@@ -30,6 +31,16 @@ export function SessionSettingsSection() {
         maxValue={120}
         step={1}
         onChange={(seconds) => void update({ agentDebounceMs: seconds * 1000 })}
+      />
+      <SettingsList.NumberInput
+        label="Hand-off delay"
+        description="Seconds to change or cancel an agent's hand-off."
+        value={toSeconds(settings?.yieldConfirmMs ?? DEFAULT_YIELD_CONFIRM_MS)}
+        defaultValue={toSeconds(DEFAULT_YIELD_CONFIRM_MS)}
+        minValue={0}
+        maxValue={120}
+        step={1}
+        onChange={(seconds) => void update({ yieldConfirmMs: seconds * 1000 })}
       />
       <SettingsList.Switch
         label="Passive Send"

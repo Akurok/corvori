@@ -22,6 +22,33 @@ export const streamStatusValidator = v.union(
   v.literal('awaiting_input'),
 )
 
+/** A parked yield call waiting for people to confirm who responds next. */
+export const yieldRequestValidator = v.object({
+  toolCallId: v.string(),
+  targetAgentId: v.id('agents'),
+  /** When the request is accepted on its own; unset once someone paused it. */
+  fireAt: v.optional(v.number()),
+  jobId: v.optional(v.id('_scheduled_functions')),
+})
+
+export const yieldRequestViewValidator = v.object({
+  toolCallId: v.string(),
+  targetAgentId: v.id('agents'),
+  fireAt: v.optional(v.number()),
+})
+
+export const resolveYieldArgsValidator = v.object({
+  sessionId: v.id('sessions'),
+  toolCallId: v.string(),
+  /** Overrides the requested agent. */
+  agentId: v.optional(v.id('agents')),
+})
+
+export const yieldRequestArgsValidator = v.object({
+  sessionId: v.id('sessions'),
+  toolCallId: v.string(),
+})
+
 /** Exposes chat controls without coupling clients to persisted execution data. */
 export const activeStreamValidator = v.object({
   _id: v.id('streams'),
@@ -32,6 +59,7 @@ export const activeStreamValidator = v.object({
   fireAt: v.optional(v.number()),
   retryAt: v.optional(v.number()),
   retryError: v.optional(v.string()),
+  yield: v.optional(yieldRequestViewValidator),
 })
 
 export const streamCommandValidator = v.union(
@@ -85,7 +113,11 @@ export const streamStateValidator = v.union(
     ...requiredOutput,
   }),
   v.object({ phase: v.literal('awaiting_approval'), ...requiredOutput }),
-  v.object({ phase: v.literal('awaiting_input'), ...requiredOutput }),
+  v.object({
+    phase: v.literal('awaiting_input'),
+    yield: v.optional(yieldRequestValidator),
+    ...requiredOutput,
+  }),
   v.object({
     phase: v.literal('stopping'),
     retryError: v.optional(v.string()),

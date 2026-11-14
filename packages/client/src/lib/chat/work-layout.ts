@@ -1,3 +1,4 @@
+import { YIELD_TOOL_PART_TYPE } from '@cv/core/utils/yield'
 import {
   type ToolUIPart,
   type UIMessage,
@@ -61,12 +62,19 @@ export function toolsInGroup(group: PartGroup): ToolUIPart[] {
     : []
 }
 
+/** Tool calls people act on, which stay visible outside collapsed work. */
+const INTERACTIVE_TOOL_TYPES: ReadonlySet<string> = new Set([
+  'tool-ask',
+  'tool-task',
+  YIELD_TOOL_PART_TYPE,
+])
+
 function isWorkContent(group: PartGroup): boolean {
   if (group.type === 'single' && isReasoningUIPart(group.part)) return true
   const tools = toolsInGroup(group)
   return (
     tools.length > 0 &&
-    tools.every((part) => part.type !== 'tool-ask' && part.type !== 'tool-task')
+    tools.every((part) => !INTERACTIVE_TOOL_TYPES.has(part.type))
   )
 }
 

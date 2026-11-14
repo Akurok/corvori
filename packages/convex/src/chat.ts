@@ -12,7 +12,11 @@ import {
   userShellFinishArgsValidator,
   userShellPatchArgsValidator,
 } from './validators/shell'
-import { activeStreamValidator } from './validators/streams'
+import {
+  activeStreamValidator,
+  resolveYieldArgsValidator,
+  yieldRequestArgsValidator,
+} from './validators/streams'
 
 export const messagesWindow = authQuery({
   args: V.messagesWindowArgsValidator.fields,
@@ -100,6 +104,21 @@ export const answerQuestions = authMutation({
   handler: Chat.answerQuestions,
 })
 
+export const acceptYield = authMutation({
+  args: resolveYieldArgsValidator,
+  handler: Chat.acceptYield,
+})
+
+export const pauseYield = authMutation({
+  args: yieldRequestArgsValidator,
+  handler: Chat.pauseYield,
+})
+
+export const cancelYield = authMutation({
+  args: yieldRequestArgsValidator,
+  handler: Chat.cancelYield,
+})
+
 export const compact = authMutation({
   args: {
     sessionId: v.id('sessions'),
@@ -174,6 +193,11 @@ export const listMessageVersions = authQuery({
 export const _drainCommandQueue = internalMutation({
   args: { sessionId: v.id('sessions') },
   handler: Chat.drainCommandQueue,
+})
+
+export const _expireYield = internalMutation({
+  args: { streamId: v.id('streams'), toolCallId: v.string() },
+  handler: Chat.expireYield,
 })
 
 export const _runScheduledEvent = internalMutation({

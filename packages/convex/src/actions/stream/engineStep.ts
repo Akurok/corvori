@@ -2,6 +2,7 @@
 
 import { truncateTitleExcerpt } from '@cv/core/title-generation'
 import { hasPendingQuestions } from '@cv/core/utils/ask'
+import { hasPendingYield } from '@cv/core/utils/yield'
 import type { UIMessage } from 'ai'
 
 import { internal } from '../../_generated/api'
@@ -222,6 +223,7 @@ export async function consumeProviderStep(
     const awaitingApproval = hasAwaitingApproval(latestParts)
     const awaitingQuestions = hasPendingQuestions(latestParts)
     const awaitingTasks = hasPendingTaskParts(latestParts)
+    const awaitingYield = hasPendingYield(latestParts)
     if (awaitingApproval) {
       latestParts = await attachApprovalPreviews(ctx, setup, latestParts)
     }
@@ -271,6 +273,7 @@ export async function consumeProviderStep(
       awaitingApproval,
       awaitingQuestions,
       awaitingTasks,
+      awaitingYield,
       hasOutput: {
         value: outputTracker.hasOutput,
         duration,

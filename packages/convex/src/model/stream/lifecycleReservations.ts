@@ -28,6 +28,26 @@ export async function reserveFollowUp(
   )
 }
 
+/** Reserves the active agent's turn right after another agent handed off to it. */
+export async function reserveHandOff(
+  ctx: MutationCtx,
+  stream: Doc<'streams'>,
+  invokedBy: Id<'users'>,
+): Promise<boolean> {
+  const processingMessageId = stream.state.processingMessageId
+  const boundaryMessage =
+    processingMessageId && (await ctx.db.get(processingMessageId))
+  if (!boundaryMessage) return false
+
+  return Boolean(
+    await reserveInvokeTurn(ctx, {
+      sessionId: stream.sessionId,
+      boundaryMessage,
+      invokedBy,
+    }),
+  )
+}
+
 /** The earliest user/sub-agent message the completed turn did not consume. */
 export async function earliestUnconsumedMessage(
   ctx: MutationCtx,

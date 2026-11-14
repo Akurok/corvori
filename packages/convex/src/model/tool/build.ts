@@ -1,6 +1,6 @@
 'use node'
 
-import { ASK_TOOL_NAME } from '@cv/core/const'
+import { ASK_TOOL_NAME, YIELD_TOOL_NAME } from '@cv/core/const'
 import { READ_ATTACHMENT_TOOL_NAME } from '@cv/core/const'
 import { hasFilesystemTools } from '@cv/core/tool-capabilities'
 import type { WireToolCall } from '@cv/core/tool-dispatch'
@@ -50,6 +50,7 @@ import type { SkillsContext } from './skills'
 import { createTaskTool } from './task'
 import { createEditTodoTool, createWriteTodoTool } from './todo'
 import { createWebFetchTool, createWebSearchTool } from './web'
+import { createYieldTool } from './yieldTurn'
 
 /** Session data the tool builder needs. */
 export type ToolSession = Pick<Session, '_id' | 'workspace' | 'parent'> & {
@@ -354,6 +355,8 @@ async function createManifestTool(
       return planContext && createEditTodoTool(planContext)
     case ASK_TOOL_NAME:
       return createAskTool()
+    case YIELD_TOOL_NAME:
+      return createYieldTool()
     case TASK_TOOL_NAME:
       return createTaskTool(build.manifest.taskRoster ?? '')
   }
