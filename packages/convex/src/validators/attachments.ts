@@ -1,11 +1,21 @@
 import { v } from 'convex/values'
 
+export const attachmentImageDimensions = v.object({
+  width: v.number(),
+  height: v.number(),
+})
+
 export const confirmAttachmentArgsValidator = v.object({
   storageId: v.id('_storage'),
   previewStorageId: v.optional(v.id('_storage')),
   sessionId: v.id('sessions'),
   filename: v.string(),
   mediaType: v.string(),
+})
+
+export const confirmAttachmentWithDimensionsArgsValidator = v.object({
+  ...confirmAttachmentArgsValidator.fields,
+  imageDimensions: v.optional(attachmentImageDimensions),
 })
 
 export const createGeneratedAttachmentArgsValidator = v.object({
@@ -17,6 +27,7 @@ export const createGeneratedAttachmentArgsValidator = v.object({
   storageId: v.id('_storage'),
   filename: v.string(),
   mediaType: v.string(),
+  imageDimensions: v.optional(attachmentImageDimensions),
 })
 
 /** A session attachment referencing a shared file. */
@@ -39,6 +50,7 @@ export const attachmentFileSchema = v.object({
   storageId: v.id('_storage'),
   previewStorageId: v.optional(v.id('_storage')),
   previewMediaType: v.optional(v.string()),
+  imageDimensions: v.optional(attachmentImageDimensions),
   filename: v.string(),
   mediaType: v.string(),
   byteLength: v.number(),

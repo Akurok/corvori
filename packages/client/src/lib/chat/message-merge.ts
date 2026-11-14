@@ -1,5 +1,6 @@
 import type { UIMessage } from 'ai'
 
+import { isOptimisticMessageId } from './message-uploads'
 import type { MessageRecord, PartMetadata } from './types'
 
 export type RetainedState = {
@@ -44,6 +45,7 @@ export function mergeRetained(
   const partMetaByMessage = new Map(merged.partMetaByMessage)
 
   for (const id of keptOlder) {
+    if (isOptimisticMessageId(id)) continue
     const message = prev.messagesById.get(id)
     if (!message) continue
     results.push(message)

@@ -9,8 +9,10 @@
  */
 
 import type * as actions_agents from "../actions/agents.js";
+import type * as actions_attachments from "../actions/attachments.js";
 import type * as actions_folders from "../actions/folders.js";
 import type * as actions_io_agent from "../actions/io/agent.js";
+import type * as actions_io_attachmentImage from "../actions/io/attachmentImage.js";
 import type * as actions_io_avatar from "../actions/io/avatar.js";
 import type * as actions_mcp from "../actions/mcp.js";
 import type * as actions_mcpCatalogs from "../actions/mcpCatalogs.js";
@@ -455,8 +457,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/agents": typeof actions_agents;
+  "actions/attachments": typeof actions_attachments;
   "actions/folders": typeof actions_folders;
   "actions/io/agent": typeof actions_io_agent;
+  "actions/io/attachmentImage": typeof actions_io_attachmentImage;
   "actions/io/avatar": typeof actions_io_avatar;
   "actions/mcp": typeof actions_mcp;
   "actions/mcpCatalogs": typeof actions_mcpCatalogs;

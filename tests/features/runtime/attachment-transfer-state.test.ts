@@ -3,7 +3,10 @@ import {
   finishPublish,
   mergePublishedAttachments,
 } from '@cv/convex/model/attachmentTransfers'
-import { cleanUpGeneratedAttachments } from '@cv/convex/model/attachments'
+import {
+  cleanUpGeneratedAttachments,
+  getUrlMap,
+} from '@cv/convex/model/attachments'
 import { expect, test } from 'bun:test'
 import { skillsDatabase } from '~/tests/helpers/skills-db'
 
@@ -117,4 +120,39 @@ test('rechecks membership, plan mode, selection, and execution before publicatio
     finishPublish(f.ctx, operation._id, execution, upload),
   ).rejects.toThrow('Not found')
   expect(f.rows('attachments')).toHaveLength(0)
+})
+
+test('returns original image dimensions with the published attachment URL', async () => {
+  const f = fixture()
+  const operation = await begin(f.ctx, call)
+  const imageDimensions = { width: 800, height: 1200 }
+  const { attachmentId } = await finishPublish(
+    f.ctx,
+    operation._id,
+    execution,
+    {
+      ...upload,
+      filename: 'report.png',
+      mediaType: 'image/png',
+      imageDimensions,
+    },
+  )
+  if (!attachmentId) throw new Error('Expected a published image attachment')
+  const ctx = {
+    ...f.ctx,
+    userId: 'reader' as never,
+    storage: {
+      ...f.ctx.storage,
+      getUrl: async () => 'https://storage.example.test/report.png',
+    },
+  }
+  expect(await getUrlMap(ctx, { ids: [attachmentId] })).toEqual({})
+
+  f.rows('userSessions').push({
+    _id: 'child-membership',
+    sessionId: 'child',
+    userId: 'reader',
+  })
+  const urls = await getUrlMap(ctx, { ids: [attachmentId] })
+  expect(urls[attachmentId]?.imageDimensions).toEqual(imageDimensions)
 })

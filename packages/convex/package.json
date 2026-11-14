@@ -6,5 +6,8 @@
     "convex": "cd ../.. && bun x convex dev",
     "codegen": "cd ../.. && bun x convex codegen",
     "deploy": "cd ../.. && bun x convex deploy"
+  },
+  "dependencies": {
+    "image-size-next": "^2.1.1"
   }
 }

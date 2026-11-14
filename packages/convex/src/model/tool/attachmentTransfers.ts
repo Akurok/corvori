@@ -157,12 +157,26 @@ async function attachFile(
       signal,
     )
     signal?.throwIfAborted()
+    const imageDimensions = await publishedImageDimensions(ctx, uploaded)
+    signal?.throwIfAborted()
     return ctx.runMutation(internal.attachments._finishPublish, {
       ...execution,
       id: operation._id,
       ...uploaded,
+      imageDimensions,
     })
   })
+}
+
+async function publishedImageDimensions(
+  ctx: ActionCtx,
+  { storageId, mediaType }: { storageId: Id<'_storage'>; mediaType: string },
+) {
+  if (!mediaType.startsWith('image/')) return
+
+  const { readStoredAttachmentImageDimensions } =
+    await import('../../actions/io/attachmentImage')
+  return readStoredAttachmentImageDimensions(ctx.storage, storageId)
 }
 
 async function runTransfer(

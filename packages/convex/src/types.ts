@@ -174,9 +174,12 @@ export type ProviderContinuityScope = Infer<typeof ProviderRequestsV.providerCon
 export type AttachmentCursorCall = Infer<typeof V.attachmentCursorCall>
 export type AttachmentCursorSettings = Infer<typeof V.attachmentCursorSettings>
 
+export type AttachmentImageDimensions = Infer<typeof V.attachmentImageDimensions> // prettier-ignore
+
 export type SaveSessionCacheArgs = Infer<typeof V.saveSessionCacheArgsValidator>
 export type SendMessageArgs = Infer<typeof V.sendMessageArgsValidator>
 export type ConfirmAttachmentArgs = Infer<typeof V.confirmAttachmentArgsValidator> // prettier-ignore
+export type ConfirmAttachmentWithDimensionsArgs = Infer<typeof V.confirmAttachmentWithDimensionsArgsValidator> // prettier-ignore
 export type CreateGeneratedAttachmentArgs = Infer<typeof V.createGeneratedAttachmentArgsValidator> // prettier-ignore
 export type CreateAgentArgs = Infer<typeof V.createAgentArgsValidator>
 export type UpdateAgentArgs = Infer<typeof V.updateAgentArgsValidator>

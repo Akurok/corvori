@@ -1,6 +1,7 @@
 import { normalizeBrowserUrl } from '@/lib/auth/site-url'
 import { api } from '@cv/convex/_generated/api'
 import type { Id } from '@cv/convex/_generated/dataModel'
+import type { AttachmentImageDimensions } from '@cv/convex/types'
 import { useEffect, useMemo } from 'react'
 
 import { createMediaUrlStore } from './media-urls'
@@ -15,6 +16,7 @@ export type AttachmentUrls = {
   previewUrl: string | null
   permaUrl: string | null
   byteLength: number | null
+  imageDimensions?: AttachmentImageDimensions
 }
 
 /** Resolves many attachments to their normalized URLs from the shared cache. */
@@ -37,6 +39,7 @@ export function useAttachmentUrls(
         ),
         permaUrl: normalizeBrowserUrl(entry?.permaUrl ?? null),
         byteLength: entry?.byteLength ?? null,
+        imageDimensions: entry?.imageDimensions,
       }
     }
 

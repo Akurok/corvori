@@ -4,7 +4,8 @@ import { error } from '../errors'
 import type { AuthMutationCtx, AuthQueryCtx } from '../functions'
 import { generateId } from '../lib/utils'
 import type {
-  ConfirmAttachmentArgs,
+  AttachmentImageDimensions,
+  ConfirmAttachmentWithDimensionsArgs,
   CreateGeneratedAttachmentArgs,
 } from '../types'
 import { allVersionParts } from './messageContents'
@@ -18,16 +19,18 @@ export async function generateUploadUrl(ctx: AuthMutationCtx) {
 }
 
 export async function confirm(
-  ctx: AuthMutationCtx,
-  args: ConfirmAttachmentArgs,
+  ctx: MutationCtx,
+  args: ConfirmAttachmentWithDimensionsArgs,
+  uploaderId: Id<'users'>,
 ) {
-  const { session } = await requireMember(ctx, args.sessionId, ctx.userId)
+  const { imageDimensions, ...attachment } = args
+  const { session } = await requireMember(ctx, args.sessionId, uploaderId)
   requireEnabled(session)
-  const fileId = await createFile(ctx, args)
+  const fileId = await createFile(ctx, { ...attachment, imageDimensions })
   return ctx.db.insert('attachments', {
-    ...args,
+    ...attachment,
     fileId,
-    uploaderId: ctx.userId,
+    uploaderId,
   })
 }
 
@@ -36,6 +39,7 @@ type CreateFileArgs = {
   previewStorageId?: Id<'_storage'>
   filename: string
   mediaType: string
+  imageDimensions?: AttachmentImageDimensions
 }
 
 async function createFile(ctx: MutationCtx, args: CreateFileArgs) {
@@ -52,6 +56,7 @@ async function createFile(ctx: MutationCtx, args: CreateFileArgs) {
     storageId: args.storageId,
     previewStorageId: args.previewStorageId,
     previewMediaType: previewMetadata?.contentType,
+    imageDimensions: args.imageDimensions,
     filename: args.filename,
     mediaType: args.mediaType,
     byteLength: metadata.size,
@@ -163,6 +168,7 @@ export async function getUrlMap(
       previewUrl: string | null
       permaUrl: string | null
       byteLength: number | null
+      imageDimensions?: AttachmentImageDimensions
       mediaType: string
       filename: string
       createdAt: number
@@ -187,6 +193,7 @@ export async function getUrlMap(
         previewUrl,
         permaUrl: permaUrl(file.shareToken, file.filename),
         byteLength: file.byteLength,
+        imageDimensions: file.imageDimensions,
         mediaType: file.mediaType,
         filename: file.filename,
         createdAt: attachment._creationTime,
@@ -211,8 +218,8 @@ export async function createGeneratedAttachment(
   ctx: MutationCtx,
   args: CreateGeneratedAttachmentArgs,
 ) {
-  const { generation: _generation, ...attachment } = args
-  const fileId = await createFile(ctx, attachment)
+  const { generation: _generation, imageDimensions, ...attachment } = args
+  const fileId = await createFile(ctx, { ...attachment, imageDimensions })
   const attachmentId = await ctx.db.insert('attachments', {
     ...attachment,
     fileId,

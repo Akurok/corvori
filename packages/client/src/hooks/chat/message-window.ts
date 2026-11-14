@@ -6,6 +6,10 @@ import type {
   WindowControls,
 } from '@/lib/chat/message-store'
 import {
+  appendMessageUploads,
+  useMessageUploads,
+} from '@/lib/chat/message-uploads'
+import {
   anchorForOlderPage,
   anchorFromStart,
   sliceTailByBudget,
@@ -168,13 +172,23 @@ export function useMessageWindow(
     return () => cancelAnimationFrame(id)
   }, [state, data?.atTail, sessionId])
 
-  const messages = useMemo(() => {
+  const windowMessages = useMemo(() => {
     const page = data?.page
     if (!page) return []
     const sliced =
       state.kind === 'live' ? sliceTailByBudget(page, state.capBytes) : page
     return hydrateLiveSegments(sliced, liveSegments ?? [])
   }, [data, state, liveSegments])
+
+  const uploads = useMessageUploads(sessionId)
+
+  const messages = useMemo(
+    () =>
+      state.kind === 'live'
+        ? appendMessageUploads(windowMessages, uploads)
+        : windowMessages,
+    [state.kind, windowMessages, uploads],
+  )
 
   useEffect(() => {
     if (result === undefined || loading) return
@@ -214,14 +228,14 @@ export function useMessageWindow(
         }
       }
 
-      if (messages.length === 0) return false
+      if (windowMessages.length === 0) return false
 
       const target = anchorForOlderPage(
-        messages,
+        windowMessages,
         MESSAGE_PAGE_BUDGET_BYTES,
         MESSAGE_WINDOW_BUDGET_BYTES,
       )
-      const anchor = keyOf(before ?? messages[target.index])
+      const anchor = keyOf(before ?? windowMessages[target.index])
       if (!anchor) return false
 
       startLoading('older', true)
@@ -238,15 +252,15 @@ export function useMessageWindow(
       })
       return true
     },
-    [sessionId, state, messages, keyOf, loading, startLoading],
+    [sessionId, state, windowMessages, keyOf, loading, startLoading],
   )
 
   // Load newer messages while dropping the oldest page
   const extendNewer = useCallback((): boolean => {
-    if (!sessionId || messages.length === 0) return false
+    if (!sessionId || windowMessages.length === 0) return false
 
-    const target = anchorFromStart(messages, MESSAGE_PAGE_BUDGET_BYTES)
-    const anchor = keyOf(messages[target.index])
+    const target = anchorFromStart(windowMessages, MESSAGE_PAGE_BUDGET_BYTES)
+    const anchor = keyOf(windowMessages[target.index])
     if (!anchor) return false
 
     startLoading('newer', true)
@@ -258,7 +272,7 @@ export function useMessageWindow(
       viaSeek: false,
     })
     return true
-  }, [sessionId, messages, keyOf, startLoading])
+  }, [sessionId, windowMessages, keyOf, startLoading])
 
   const returnToLatest = useCallback(() => {
     if (!sessionId) return

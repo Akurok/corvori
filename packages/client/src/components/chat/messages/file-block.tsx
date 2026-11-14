@@ -27,18 +27,20 @@ export function FileBlock({ parts, attachmentIds }: FileBlockProps) {
       parts.map((part, index) => {
         const attachmentId = attachmentIds?.[part.url]
         const resolved = attachmentId ? urls[attachmentId] : undefined
-        const local = attachmentId
-          ? getAttachmentSendPreview(attachmentId)
-          : undefined
+        const local = getAttachmentSendPreview(attachmentId ?? part.url)
         const file = buildFileItemFromPart(
           part,
-          `${index}:${attachmentId ?? part.url}`,
+          local?.key ?? `${index}:${attachmentId ?? part.url}`,
           resolved?.url ?? undefined,
           resolved?.previewUrl ?? local?.preview.url,
           resolved?.permaUrl ?? undefined,
           resolved?.byteLength ?? local?.byteLength,
         )
-        return { ...file, localPreview: local?.preview }
+        return {
+          ...file,
+          localPreview: local?.preview,
+          imageDimensions: resolved?.imageDimensions ?? local?.imageDimensions,
+        }
       }),
     [parts, attachmentIds, urls],
   )
@@ -48,7 +50,8 @@ export function FileBlock({ parts, attachmentIds }: FileBlockProps) {
       data-slot="file-block"
       files={files}
       size={128}
-      className="gap-(--message-block-gap) p-0"
+      // Virtua disables pointer events on the list while scrolling.
+      className="pointer-events-auto gap-(--message-block-gap) p-0"
       noAnimation
     />
   )

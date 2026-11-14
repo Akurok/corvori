@@ -1,6 +1,7 @@
 import { FileBlock } from '@/components/chat/messages/file-block'
 import { AttachmentAnchor } from '@/components/markdown/attachment-anchor'
 import { FileStrip } from '@/components/ui/file-strip'
+import { LightboxProvider } from '@/components/ui/lightbox'
 import { AttachmentUrlProvider } from '@/hooks/chat/attachment-urls'
 import type { FileItem } from '@/hooks/file-previews'
 import { ConvexProvider, type ConvexReactClient } from 'convex/react'
@@ -16,6 +17,10 @@ const files: FileItem[] = [
 ]
 
 const publishedUrl = 'attachment:published'
+const images = {
+  first: { width: 320, height: 400 },
+  second: { width: 1200, height: 1800 },
+}
 const attachmentUrls = {
   published: {
     url: 'https://storage.example.test/published-pdf',
@@ -23,6 +28,16 @@ const attachmentUrls = {
     mediaType: 'application/pdf',
     filename: 'processed.pdf',
   },
+  ...Object.fromEntries(
+    Object.entries(images).map(([id, imageDimensions]) => [
+      id,
+      {
+        url: `https://storage.example.test/${id}-original.png`,
+        previewUrl: `https://storage.example.test/${id}-preview.png`,
+        imageDimensions,
+      },
+    ]),
+  ),
 }
 const attachmentClient = {
   watchQuery() {
@@ -35,7 +50,36 @@ const attachmentClient = {
   },
 } as unknown as ConvexReactClient
 
+/** Mirrors the pointer-event guard on the virtualized chat list. */
+function AttachmentGalleryFixture() {
+  const ids = Object.keys(images)
+  return (
+    <LightboxProvider>
+      <ConvexProvider client={attachmentClient}>
+        <AttachmentUrlProvider />
+        <div style={{ pointerEvents: 'none' }}>
+          <FileBlock
+            parts={ids.map((id) => ({
+              type: 'file',
+              url: `attachment:${id}`,
+              mediaType: 'image/png',
+              filename: `${id}.png`,
+            }))}
+            attachmentIds={Object.fromEntries(
+              ids.map((id) => [`attachment:${id}`, id]),
+            )}
+          />
+        </div>
+      </ConvexProvider>
+    </LightboxProvider>
+  )
+}
+
 export function AttachmentDownloadFixture() {
+  if (new URLSearchParams(location.search).has('gallery')) {
+    return <AttachmentGalleryFixture />
+  }
+
   return (
     <>
       <FileStrip files={files} noAnimation />

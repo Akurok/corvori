@@ -7,7 +7,7 @@ import type { Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 import { error } from '../errors'
 import { sharedSessionId } from '../lib/subagent'
-import type { StreamExecutionArgs } from '../types'
+import type { AttachmentImageDimensions, StreamExecutionArgs } from '../types'
 import type {
   attachmentTransferCall,
   attachmentTransferResult,
@@ -138,6 +138,7 @@ type Publish = {
   storageId: Id<'_storage'>
   filename: string
   mediaType: string
+  imageDimensions?: AttachmentImageDimensions
 }
 
 export async function finishPublish(

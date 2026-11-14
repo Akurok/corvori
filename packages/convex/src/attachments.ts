@@ -1,7 +1,13 @@
 import { v } from 'convex/values'
 
 import { internalMutation, internalQuery } from './_generated/server'
-import { authMutation, authQuery } from './functions'
+import { error } from './errors'
+import {
+  authMutation,
+  authQuery,
+  findUserBySubject,
+  getSubject,
+} from './functions'
 import * as Cursors from './model/attachmentCursors'
 import * as Transfers from './model/attachmentTransfers'
 import * as Attachments from './model/attachments'
@@ -11,7 +17,9 @@ import {
 } from './validators/attachmentTransfers'
 import {
   attachmentCursorCall,
+  attachmentImageDimensions,
   confirmAttachmentArgsValidator,
+  confirmAttachmentWithDimensionsArgsValidator,
   createGeneratedAttachmentArgsValidator,
   saveAttachmentCursorArgs,
 } from './validators/attachments'
@@ -24,7 +32,16 @@ export const generateUploadUrl = authMutation({
 
 export const confirm = authMutation({
   args: confirmAttachmentArgsValidator.fields,
-  handler: Attachments.confirm,
+  handler: (ctx, args) => Attachments.confirm(ctx, args, ctx.userId),
+})
+
+export const _confirmWithDimensions = internalMutation({
+  args: confirmAttachmentWithDimensionsArgsValidator.fields,
+  handler: async (ctx, args) => {
+    const user = await findUserBySubject(ctx, await getSubject(ctx))
+    if (!user) error('Profile not initialized', 409)
+    return Attachments.confirm(ctx, args, user._id)
+  },
 })
 
 export const getUrl = authQuery({
@@ -122,6 +139,7 @@ export const _finishPublish = internalMutation({
     storageId: v.id('_storage'),
     filename: v.string(),
     mediaType: v.string(),
+    imageDimensions: v.optional(attachmentImageDimensions),
   },
   handler: (ctx, { id, streamId, generation, ...file }) =>
     Transfers.finishPublish(ctx, id, { streamId, generation }, file),

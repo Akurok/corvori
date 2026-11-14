@@ -1,6 +1,7 @@
 import { createOptionalContext } from '@/hooks'
 import { getFocusReturnTarget } from '@/lib/focus-return'
 import { cn } from '@/lib/utils'
+import type { AttachmentImageDimensions } from '@cv/convex/types'
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
@@ -15,6 +16,7 @@ export type LightboxEntry = {
   alt?: string
   kind: 'image' | 'video'
   poster?: string
+  dimensions?: AttachmentImageDimensions
 }
 
 type LightboxControls = {
@@ -185,12 +187,28 @@ function GalleryArrow({ direction, disabled, onClick }: GalleryArrowProps) {
 
 function LightboxImage({ entry }: { entry: LightboxEntry }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const loading = status === 'loading'
+  const { dimensions, poster } = entry
+  const stage = dimensions && imageStageStyle(dimensions)
   if (status === 'error') return <LightboxError alt={entry.alt} />
 
   return (
-    <>
-      {status === 'loading' && (
-        <LoadingIndicator size={48} className="pointer-events-none absolute" />
+    <div
+      className={cn(
+        'relative isolate grid place-items-center rounded-xl shadow-2xl',
+        poster && 'overflow-hidden',
+      )}
+      style={stage}
+    >
+      {loading && poster && (
+        <LightboxPreview
+          src={poster}
+          className={
+            stage
+              ? 'absolute inset-0 size-full object-contain'
+              : 'max-h-[90dvh] max-w-[90vw] object-contain'
+          }
+        />
       )}
       <img
         src={entry.src}
@@ -198,12 +216,24 @@ function LightboxImage({ entry }: { entry: LightboxEntry }) {
         onLoad={() => setStatus('ready')}
         onError={() => setStatus('error')}
         className={cn(
-          'max-h-[90dvh] max-w-[90vw] rounded-xl object-contain shadow-2xl transition-opacity select-none',
-          status === 'loading' && 'opacity-0',
+          'block max-h-[90dvh] max-w-[90vw] rounded-xl object-contain select-none',
+          loading && 'opacity-0',
+          stage
+            ? 'absolute inset-0 size-full'
+            : loading && poster && 'absolute',
         )}
       />
-    </>
+      {loading && <LightboxLoading />}
+    </div>
   )
+}
+
+function imageStageStyle({ width, height }: AttachmentImageDimensions) {
+  const ratio = width / height
+  return {
+    width: `min(${width}px, 90vw, ${90 * ratio}dvh)`,
+    aspectRatio: ratio,
+  }
 }
 
 function LightboxVideo({ entry }: { entry: LightboxEntry }) {
@@ -230,15 +260,10 @@ function LightboxVideo({ entry }: { entry: LightboxEntry }) {
 
   return (
     <div className="relative isolate grid place-items-center overflow-hidden rounded-xl bg-black shadow-2xl">
-      {entry.poster && (
-        <img
-          data-slot="lightbox-video-preview"
+      {status === 'loading' && entry.poster && (
+        <LightboxPreview
           src={entry.poster}
-          alt=""
-          className={cn(
-            'pointer-events-none absolute inset-0 z-10 size-full scale-105 object-cover blur-md transition-opacity motion-reduce:transition-none',
-            status !== 'loading' && 'opacity-0',
-          )}
+          className="absolute inset-0 size-full scale-105 object-cover"
         />
       )}
       <video
@@ -264,13 +289,31 @@ function LightboxVideo({ entry }: { entry: LightboxEntry }) {
           }
         }
       />
-      {status === 'loading' && (
-        <LoadingIndicator
-          size={48}
-          className="pointer-events-none absolute z-20"
-        />
-      )}
+      {status === 'loading' && <LightboxLoading />}
     </div>
+  )
+}
+
+function LightboxPreview({
+  src,
+  className,
+}: {
+  src: string
+  className: string
+}) {
+  return (
+    <img
+      data-slot="lightbox-preview"
+      src={src}
+      alt=""
+      className={cn('pointer-events-none z-10 block blur-md', className)}
+    />
+  )
+}
+
+function LightboxLoading() {
+  return (
+    <LoadingIndicator size={48} className="pointer-events-none absolute z-20" />
   )
 }
 

@@ -1,4 +1,5 @@
 import { isDisplayableUrl, thumbnail } from '@/lib/io'
+import type { AttachmentImageDimensions } from '@cv/convex/types'
 import { isKnownTextFile } from '@cv/core/workspace/files'
 import { useEffect, useRef, useState } from 'react'
 
@@ -9,6 +10,7 @@ export type FileItem = {
   originalUrl?: string
   permaUrl?: string
   byteLength?: number
+  imageDimensions?: AttachmentImageDimensions
   canInsertInline?: boolean
   localPreview?: LocalFilePreview
 }

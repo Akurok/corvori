@@ -71,6 +71,9 @@ export async function offloadGeneratedFiles(
 
       const mediaType = part.mediaType ?? parsed.mediaType
       const filename = part.filename ?? generatedFilename(mediaType, cache.size)
+      const { readAttachmentImageDimensions } =
+        await import('../io/attachmentImage')
+      const imageDimensions = await readAttachmentImageDimensions(parsed.bytes)
 
       const storageId = await ctx.storage.store(
         new Blob([parsed.bytes], { type: mediaType }),
@@ -87,6 +90,7 @@ export async function offloadGeneratedFiles(
           storageId,
           mediaType,
           filename,
+          imageDimensions,
         },
       )
 

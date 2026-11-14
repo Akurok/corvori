@@ -346,6 +346,15 @@ async function respond(
 }
 
 export const approvalFixtureClient = {
+  async action(reference: FunctionReference<'action'>) {
+    const name = getFunctionName(reference)
+    if (name === 'actions/attachments:confirmImage')
+      return {
+        id: `attachment-${++attachmentCount}`,
+        imageDimensions: { width: 16, height: 16 },
+      }
+    throw new Error(`Unexpected action: ${name}`)
+  },
   watchQuery(
     reference: FunctionReference<'query'>,
     args: Record<string, unknown>,

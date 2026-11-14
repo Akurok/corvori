@@ -9,6 +9,7 @@ import type { FileUIPart, TextUIPart, UIMessage } from 'ai'
 import { isReasoningUIPart, isTextUIPart, isToolUIPart } from 'ai'
 
 import type { MessageStore } from './message-store'
+import { isOptimisticMessageId } from './message-uploads'
 import {
   groupPartsCached,
   isRenderablePartGroup,
@@ -300,7 +301,10 @@ export function extractTextFromMessage(message: UIMessage): string {
 
 /** A message can be inline-edited when it is a single plain text part. */
 export function isEditableMessage(message: UIMessage): boolean {
-  return message.parts.filter(isTextUIPart).length === 1
+  return (
+    !isOptimisticMessageId(message.id) &&
+    message.parts.filter(isTextUIPart).length === 1
+  )
 }
 
 /** Whether the current user may edit or delete this message. */
@@ -311,6 +315,7 @@ export function canMutateMessage(
   profile: Doc<'users'> | null,
 ): boolean {
   if (!session || !profile || isMessageProcessing(message)) return false
+  if (isOptimisticMessageId(message.id)) return false
 
   const isSessionOwner = session.ownerId === profile._id
   if (session.settings?.disabled && !isSessionOwner) return false

@@ -1,4 +1,5 @@
 /// <reference types="bun-types" />
+import { readAttachmentImageDimensions } from '@cv/convex/actions/io/attachmentImage'
 import {
   _createGenerated,
   cleanUpGeneratedAttachments,
@@ -13,6 +14,7 @@ import {
   parseDataUrl,
 } from '@cv/convex/model/stream/generatedFiles'
 import { describe, expect, test } from 'bun:test'
+import sharp from 'sharp'
 
 const PNG_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -199,14 +201,22 @@ describe('cleanUpGeneratedAttachments', () => {
 })
 
 describe('shared attachment lifecycle', () => {
-  test('records authoritative storage size for generated files', async () => {
+  test('records authoritative storage size and display dimensions for generated files', async () => {
+    const rotated = await sharp({
+      create: { width: 80, height: 40, channels: 3, background: 'blue' },
+    })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer()
+    const imageDimensions = await readAttachmentImageDimensions(rotated)
+    expect(imageDimensions).toEqual({ width: 40, height: 80 })
     const inserts: Array<{ table: string; value: Record<string, unknown> }> = []
     const ctx = {
       db: {
         get: async () => ({ generation: 0, state: { phase: 'streaming' } }),
         system: {
           get: async (_table: string, id: string) =>
-            id === 'blob1' ? { size: 42, contentType: 'image/png' } : null,
+            id === 'blob1' ? { size: 42, contentType: 'image/jpeg' } : null,
         },
         insert: async (table: string, value: Record<string, unknown>) => {
           inserts.push({ table, value })
@@ -222,12 +232,14 @@ describe('shared attachment lifecycle', () => {
       sessionId: 'session1' as never,
       uploaderId: 'user1' as never,
       storageId: 'blob1' as never,
-      filename: 'image.png',
-      mediaType: 'image/png',
+      filename: 'image.jpg',
+      mediaType: 'image/jpeg',
+      imageDimensions,
     })
 
     expect(inserts[0]?.table).toBe('attachmentFiles')
     expect(inserts[0]?.value.byteLength).toBe(42)
+    expect(inserts[0]?.value.imageDimensions).toEqual(imageDimensions)
     expect(inserts[1]).toEqual({
       table: 'attachments',
       value: {
@@ -236,8 +248,8 @@ describe('shared attachment lifecycle', () => {
         sessionId: 'session1',
         uploaderId: 'user1',
         storageId: 'blob1',
-        filename: 'image.png',
-        mediaType: 'image/png',
+        filename: 'image.jpg',
+        mediaType: 'image/jpeg',
         fileId: 'file1',
       },
     })

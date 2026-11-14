@@ -52,7 +52,7 @@ function completeSend(page: Page, success: boolean) {
   }, success)
 }
 
-test('clears on upload and keeps mixed attachments visible through confirmation', async ({
+test('shows mixed attachments immediately and keeps them visible through confirmation', async ({
   page,
 }) => {
   const upload = Promise.withResolvers<void>()
@@ -79,6 +79,10 @@ test('clears on upload and keeps mixed attachments visible through confirmation'
     composer(page).getByRole('button', { name: 'Preview notes.log' }),
   ).toBeVisible()
   const submitted = page.getByText('Send these files', { exact: true })
+  const files = page.locator('[data-slot="file-block"]')
+  const preview = files.getByRole('img', { name: 'screen.png' })
+  const notes = files.getByRole('button', { name: 'Preview notes.log' })
+  let uploadingThumbnail
   try {
     await editor.fill('Send these files')
     await sendButton(page).click()
@@ -87,28 +91,35 @@ test('clears on upload and keeps mixed attachments visible through confirmation'
     await expect(
       composer(page).locator('[data-slot="file-strip"]'),
     ).toHaveCount(0)
-    await expect(submitted).toHaveCount(0)
+    await expect(submitted).toHaveCount(1)
+    await expect(preview).toBeInViewport()
+    await expect(preview).toHaveAttribute('src', /^data:image/)
+    await expect(notes).toBeVisible()
+    uploadingThumbnail = await preview.elementHandle()
   } finally {
     upload.resolve()
   }
 
-  const files = page.locator('[data-slot="file-block"]')
-  await expect(submitted).toHaveCount(1)
+  await expect(page.getByTestId('approval-mutations')).toContainText(
+    'chat:sendMessage',
+  )
   expect(logContentType).toBe('application/octet-stream')
-  await expect(files.getByRole('img', { name: 'screen.png' })).toBeVisible()
-  await expect(
-    files.getByRole('button', { name: 'Preview notes.log' }),
-  ).toBeVisible()
+  await expect(submitted).toHaveCount(1)
+  expect(
+    await preview.evaluate(
+      (image, previous) => image === previous,
+      uploadingThumbnail,
+    ),
+  ).toBe(true)
+  await expect(preview).toHaveAttribute('src', /^data:image/)
+  await expect(notes).toBeVisible()
 
   await completeSend(page, true)
   await expect(
     page.locator('[data-message-id="sent-0"]').first(),
   ).toBeAttached()
-  const preview = files.getByRole('img', { name: 'screen.png' })
   await expect(preview).toHaveAttribute('src', /^data:image/)
-  await expect(
-    files.getByRole('button', { name: 'Preview notes.log' }),
-  ).toBeVisible()
+  await expect(notes).toBeVisible()
   await expect(sendingButton(page)).toHaveCount(0)
   await expect(submitted).toHaveCount(1)
 
@@ -147,10 +158,41 @@ test('restores an attachment-only draft when its send fails', async ({
   await expect(
     composer(page).getByRole('button', { name: 'Preview restore.txt' }),
   ).toHaveCount(0)
+  await expect(page.getByTestId('approval-mutations')).toContainText(
+    'chat:sendMessage',
+  )
   await completeSend(page, false)
   await expect(file).toHaveCount(1)
   await expect(
     composer(page).getByRole('button', { name: 'Preview restore.txt' }),
+  ).toBeVisible()
+  await expect(sendButton(page)).toBeEnabled()
+})
+
+test('removes the optimistic message and restores its attachment when upload fails', async ({
+  page,
+}) => {
+  const upload = Promise.withResolvers<void>()
+  await page.route('**/composer-upload', async (route) => {
+    await upload.promise
+    await route.fulfill({ status: 500 })
+  })
+  await openSendFixture(page)
+  await picker(page).setInputFiles(await imageFile(page))
+  const row = page.locator('[data-slot="file-block"]')
+  try {
+    await sendButton(page).click()
+    await expect(row.getByRole('img', { name: 'screen.png' })).toBeVisible()
+    await expect(
+      composer(page).getByRole('img', { name: 'screen.png' }),
+    ).toHaveCount(0)
+  } finally {
+    upload.resolve()
+  }
+
+  await expect(row).toHaveCount(0)
+  await expect(
+    composer(page).getByRole('img', { name: 'screen.png' }),
   ).toBeVisible()
   await expect(sendButton(page)).toBeEnabled()
 })
@@ -281,7 +323,7 @@ test('uses a blurred video placeholder until the first frame loads', async ({
   await expect(thumbnail.getByRole('img')).toBeVisible()
   await thumbnail.click()
 
-  const preview = viewer(page).locator('[data-slot="lightbox-video-preview"]')
+  const preview = viewer(page).locator('[data-slot="lightbox-preview"]')
   const loading = viewer(page).getByRole('progressbar', { name: 'Loading' })
   const video = viewer(page).locator('video')
   try {
@@ -293,7 +335,7 @@ test('uses a blurred video placeholder until the first frame loads', async ({
     releaseVideo()
   }
   await expect(loading).toBeHidden()
-  await expect(preview).toHaveCSS('opacity', '0')
+  await expect(preview).toHaveCount(0)
   await expect(video).toHaveCSS('filter', 'none')
 })
 

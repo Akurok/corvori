@@ -273,7 +273,10 @@ function galleryEntry(
     mime.startsWith('image/') ||
     (thumbnailUrl && !mime.startsWith('video/'))
   ) {
-    return { ...entry, kind: 'image' }
+    const poster =
+      thumbnailUrl ??
+      (preview.previewUrl !== src ? preview.previewUrl : undefined)
+    return { ...entry, kind: 'image', poster, dimensions: item.imageDimensions }
   }
   return null
 }
