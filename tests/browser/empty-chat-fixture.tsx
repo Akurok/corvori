@@ -1,15 +1,16 @@
+import { Chat } from '@/components/chat/chat'
 import { ChatSidebars } from '@/components/chat/chat-sidebars'
 import { EmptyChat } from '@/components/chat/empty-chat'
 import { NotificationProvider } from '@/components/chat/notifications/notification-provider'
 import { ChatSearchProvider } from '@/components/chat/search'
 import { LightboxProvider } from '@/components/ui/lightbox'
 import '@/globals.css'
-import { useChatShellState } from '@/hooks/chat/shell-state'
+import { useActiveSessionId } from '@/hooks/chat/session'
 import { StreamStoreProvider } from '@/hooks/chat/stream'
 import { applyTheme, exportSchemeCss } from '@/lib/theme'
 import { generateThemeCss } from '@/lib/theme-worker'
 import { ConvexQueryCacheProvider } from 'convex-helpers/react/cache'
-import { ConvexProvider } from 'convex/react'
+import { ConvexProviderWithAuth } from 'convex/react'
 import { Link } from 'wouter'
 
 import { emptyChatClient } from './empty-chat-client'
@@ -22,7 +23,7 @@ if (!shellTheme) {
 }
 
 function SessionThemeFixture() {
-  const { activeSessionId } = useChatShellState(undefined)
+  const activeSessionId = useActiveSessionId()
   return (
     <>
       <output aria-label="Current session">{activeSessionId}</output>
@@ -41,6 +42,19 @@ function SessionThemeFixture() {
       >
         Resolve agent details
       </button>
+      <button
+        onClick={async () => {
+          await generateThemeCss('#ad2740', false)
+          window.dispatchEvent(new Event('resolve-session-messages'))
+        }}
+      >
+        Resolve session messages
+      </button>
+      <LightboxProvider>
+        <NotificationProvider>
+          <Chat />
+        </NotificationProvider>
+      </LightboxProvider>
     </>
   )
 }
@@ -52,7 +66,7 @@ export function EmptyChatFixture() {
     </LightboxProvider>
   )
   return (
-    <ConvexProvider client={emptyChatClient}>
+    <ConvexProviderWithAuth client={emptyChatClient} useAuth={useFixtureAuth}>
       <ConvexQueryCacheProvider>
         <StreamStoreProvider>
           <main className="bg-background text-foreground flex min-h-dvh w-full">
@@ -70,6 +84,12 @@ export function EmptyChatFixture() {
           </main>
         </StreamStoreProvider>
       </ConvexQueryCacheProvider>
-    </ConvexProvider>
+    </ConvexProviderWithAuth>
   )
 }
+
+const useFixtureAuth = () => ({
+  isLoading: false,
+  isAuthenticated: true,
+  fetchAccessToken: async () => 'fixture-token',
+})

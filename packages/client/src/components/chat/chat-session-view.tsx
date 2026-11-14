@@ -78,6 +78,7 @@ type ChatSessionViewProps = {
   hasActiveAgent: boolean
   activeAgentName?: string
   activeAgentDisplay?: AgentItem
+  onInitialPositionSettled?: () => void
   focusComposerOnMount?: boolean
   onDismissError: () => void
   fileIndex: ReturnType<typeof useWorkspaceFileIndex>
@@ -95,6 +96,7 @@ export function ChatSessionView({
   hasActiveAgent,
   activeAgentName,
   activeAgentDisplay,
+  onInitialPositionSettled,
   focusComposerOnMount,
   onDismissError,
   fileIndex,
@@ -169,6 +171,10 @@ export function ChatSessionView({
   useLayoutEffect(() => {
     if (initialPositionSettled) onMessageListScroll()
   }, [initialPositionSettled, onMessageListScroll])
+
+  useEffect(() => {
+    if (initialPositionSettled) onInitialPositionSettled?.()
+  }, [initialPositionSettled, onInitialPositionSettled])
 
   const handleInitialPositionSettled = useCallback(
     () => setInitialPositionSettled(true),

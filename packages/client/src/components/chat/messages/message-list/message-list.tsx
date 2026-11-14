@@ -436,10 +436,10 @@ export function MessageList({
 
   // Never leave the list hidden if a restore never settles
   useEffect(() => {
-    if (revealed) return
+    if (isLoading || revealed) return
     const timer = setTimeout(markRevealed, REVEAL_TIMEOUT_MS)
     return () => clearTimeout(timer)
-  }, [revealed, markRevealed])
+  }, [isLoading, revealed, markRevealed])
 
   // Hold the scroll position while a turn's version is switched
   useVersionHold(deps, { messageIds, messageStore, autoScroll, status })

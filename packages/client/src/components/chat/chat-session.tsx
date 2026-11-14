@@ -37,6 +37,7 @@ type ChatSessionProps = Pick<ChatProps, 'width' | 'onError'> & {
   onPendingStarted: () => void
   activeAgentName?: string
   activeAgentDisplay?: AgentItem
+  onInitialPositionSettled?: () => void
 }
 
 export function ChatSession({ sessionId, ...props }: ChatSessionProps) {
@@ -76,6 +77,7 @@ function ChatSessionContent({
   onPendingStarted,
   activeAgentName,
   activeAgentDisplay,
+  onInitialPositionSettled,
   width,
   onError,
 }: ChatSessionContentProps) {
@@ -283,6 +285,7 @@ function ChatSessionContent({
         hasActiveAgent={Boolean(session?.activeAgentId)}
         activeAgentName={activeAgentName}
         activeAgentDisplay={activeAgentDisplay}
+        onInitialPositionSettled={onInitialPositionSettled}
         focusComposerOnMount={focusComposerOnMount}
         onDismissError={handleDismissError}
         fileIndex={fileIndex}

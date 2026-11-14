@@ -14,6 +14,7 @@ import {
 } from '@/lib/ui-settings'
 import { cn } from '@/lib/utils'
 import { PanelLeftIcon, PanelRightIcon, SearchIcon } from 'lucide-react'
+import { memo } from 'react'
 
 import type { SidebarShellProps } from '../ui/sidebar'
 import { ManageAgentsButton } from './entities/agent/agent-settings'
@@ -69,7 +70,7 @@ function ChatSidebar({
   )
 }
 
-function LeftSidebar() {
+const LeftSidebar = memo(function LeftSidebar() {
   const newSession = useNewSession()
 
   return (
@@ -119,9 +120,9 @@ function LeftSidebar() {
       </Sidebar.Panel>
     </ChatSidebar>
   )
-}
+})
 
-function RightSidebar() {
+const RightSidebar = memo(function RightSidebar() {
   const { available: canSearch } = useChatSearch()
 
   return (
@@ -156,7 +157,7 @@ function RightSidebar() {
       </Sidebar.Panel>
     </ChatSidebar>
   )
-}
+})
 
 function MobileToggle({ side = 'left' }: { side?: 'left' | 'right' }) {
   const { open, isOpen, isMobile } = useSidebar()

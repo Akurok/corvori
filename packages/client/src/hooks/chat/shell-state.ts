@@ -10,12 +10,19 @@ import {
 import { resolveFonts, useSettingsOverride } from '@/hooks/font'
 import { useStableValue } from '@/hooks/stable-value'
 import { useTheme } from '@/hooks/theme'
-import { type CSSProperties, useMemo, useSyncExternalStore } from 'react'
+import {
+  type CSSProperties,
+  useCallback,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 
 type ChatShellState = {
   activeSessionId: string | null
   activeAgentName?: string
   activeAgentDisplay?: AgentItem
+  markSessionSettled: () => void
   style: CSSProperties
 }
 
@@ -27,6 +34,24 @@ export function useChatShellState(
   const sessionStatus = useActiveSessionStatus()
   const settings = useSettings()
   const override = useSettingsOverride()
+
+  const [sessionLoad, setSessionLoad] = useState({
+    sessionId: activeSessionId,
+    settled: false,
+  })
+  const sessionChanged = sessionLoad.sessionId !== activeSessionId
+  if (sessionChanged) {
+    setSessionLoad({ sessionId: activeSessionId, settled: false })
+  }
+
+  const markSessionSettled = useCallback(() => {
+    setSessionLoad((current) =>
+      current.sessionId === activeSessionId && !current.settled
+        ? { ...current, settled: true }
+        : current,
+    )
+  }, [activeSessionId])
+
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -59,12 +84,11 @@ export function useChatShellState(
     preserveAgent,
   )
 
-  const resolvedThemeColor = useStableValue(
-    agentThemeColor || globalThemeColor,
-    preserveAgent,
-  )
-
-  useTheme(resolvedThemeColor, 'you', globalThemeMode)
+  const waitingForTranscript =
+    activeSessionId !== null && (sessionChanged || !sessionLoad.settled)
+  useTheme(agentThemeColor || globalThemeColor, 'you', globalThemeMode, {
+    deferColor: preserveAgent || waitingForTranscript,
+  })
 
   const fonts = resolveFonts(settings, override)
   const chatFont = mounted && settings ? fonts.chatFont : null
@@ -86,6 +110,7 @@ export function useChatShellState(
     activeSessionId,
     activeAgentName,
     activeAgentDisplay,
+    markSessionSettled,
     style,
   }
 }

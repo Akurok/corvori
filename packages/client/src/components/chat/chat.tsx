@@ -22,9 +22,17 @@ type FirstMessage = { sessionId: string; message: PendingMessage }
 
 export function Chat(props: ChatProps) {
   const [firstMessage, setFirstMessage] = useState<FirstMessage | null>(null)
-  const { activeSessionId, activeAgentName, activeAgentDisplay, style } =
-    useChatShellState(props.layoutConstraint)
+
+  const {
+    activeSessionId,
+    activeAgentName,
+    activeAgentDisplay,
+    markSessionSettled,
+    style,
+  } = useChatShellState(props.layoutConstraint)
+
   const { codeBlockHighlighting, codeBlockLineNumbers } = useResolvedSettings()
+
   const codeAppearance = useMemo(
     () => ({
       highlighting: codeBlockHighlighting,
@@ -56,6 +64,7 @@ export function Chat(props: ChatProps) {
               }
               activeAgentName={activeAgentName}
               activeAgentDisplay={activeAgentDisplay}
+              onInitialPositionSettled={markSessionSettled}
               width={props.width}
               onError={props.onError}
             />

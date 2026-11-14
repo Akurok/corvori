@@ -1,3 +1,4 @@
+import { useStableValue } from '@/hooks/stable-value'
 import { useWorker } from '@/hooks/worker'
 import {
   type ThemeMode,
@@ -33,6 +34,7 @@ export function useTheme(
   color?: string | null,
   className = 'you',
   mode?: ThemeMode | null,
+  { deferColor = false } = {},
 ) {
   const [override, setOverride] = useState<string | null | undefined>(undefined)
   const sourceColor = override !== undefined ? override : hexColorOrNull(color)
@@ -40,6 +42,7 @@ export function useTheme(
   const requestedMode = mode ?? 'system'
   const isDark = requestedMode === 'system' ? systemIsDark : requestedMode === 'dark' // prettier-ignore
   const appliesDocumentMode = mode != null
+  const appliedThemeRef = useRef<string | null>(null)
 
   useLayoutEffect(() => {
     if (!appliesDocumentMode) return
@@ -51,20 +54,29 @@ export function useTheme(
     }
   }, [appliesDocumentMode, isDark])
 
-  useClassName(sourceColor ? className : null)
+  const activeClassName = useStableValue(
+    sourceColor ? className : null,
+    deferColor,
+  )
+  useClassName(activeClassName)
 
   const apply = useCallback((next: string | null | undefined) => {
     setOverride(hexColorOrNull(next))
   }, [])
 
   useEffect(() => {
+    if (deferColor) return
     if (!sourceColor) {
+      appliedThemeRef.current = null
       removeTheme(className)
       return
     }
 
-    let cancelled = false
     const resolvedMode = isDark ? 'dark' : 'light'
+    const themeKey = `${className}:${sourceColor}:${resolvedMode}`
+    if (appliedThemeRef.current === themeKey) return
+
+    let cancelled = false
 
     generateThemeCss(sourceColor, isDark).then(({ css }) => {
       if (cancelled) return
@@ -72,14 +84,21 @@ export function useTheme(
         { sourceColor, mode: resolvedMode, contrast: 0, css },
         className,
       )
+      appliedThemeRef.current = themeKey
     })
 
     return () => {
       cancelled = true
     }
-  }, [sourceColor, className, isDark])
+  }, [sourceColor, className, isDark, deferColor])
 
-  useEffect(() => () => removeTheme(className), [className])
+  useEffect(
+    () => () => {
+      appliedThemeRef.current = null
+      removeTheme(className)
+    },
+    [className],
+  )
 
   return [sourceColor, apply] as const
 }

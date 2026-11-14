@@ -42,6 +42,7 @@ let settings: Record<string, unknown> = {
 let providersAdded = !flags.has('noProviders')
 let resolved = !flags.has('slowWelcome')
 let agentDetailsResolved = !flags.has('deferAgentDetails')
+let sessionMessagesResolved = !flags.has('deferSessionMessages')
 let agentPromptsResolved = !flags.has('deferAgentPrompts')
 let agentPageLimit = 4
 const listeners = new Set<() => void>()
@@ -59,6 +60,10 @@ window.addEventListener('resolve-welcome', () => {
 })
 window.addEventListener('resolve-agent-details', () => {
   agentDetailsResolved = true
+  update()
+})
+window.addEventListener('resolve-session-messages', () => {
+  sessionMessagesResolved = true
   update()
 })
 window.addEventListener('resolve-agent-prompts', () => {
@@ -91,7 +96,22 @@ function query(name: string, args: Record<string, unknown>): unknown {
   if (name === 'models:list')
     return { models: [{ id: 'fixture-model', label: 'Fixture model' }] }
   if (shellTheme && name === 'sessions:get')
-    return { _id: args.sessionId, activeAgentId: args.sessionId }
+    return {
+      _id: args.sessionId,
+      activeAgentId: args.sessionId,
+      ownerId: 'owner',
+    }
+  if (shellTheme && name === 'chat:messagesWindow') {
+    if (!sessionMessagesResolved && args.sessionId === 'agent-1')
+      return undefined
+    return {
+      page: args.sessionId === 'agent-1' ? themedSessionMessages : [],
+      hasOlder: false,
+      hasNewer: false,
+      atTail: true,
+    }
+  }
+  if (shellTheme && name === 'chat:getActiveStream') return null
   if (shellTheme && name === 'sessionAgents:list')
     return agentDetailsResolved ? [] : undefined
   if (name === 'agents:get') {
@@ -158,6 +178,13 @@ function query(name: string, args: Record<string, unknown>): unknown {
 }
 
 const client = {
+  setAuth(
+    _fetchToken: () => Promise<string>,
+    onAuthChange: (authenticated: boolean) => void,
+  ) {
+    onAuthChange(true)
+  },
+  clearAuth() {},
   watchQuery(
     reference: FunctionReference<'query'>,
     args: Record<string, unknown>,
@@ -210,3 +237,24 @@ const client = {
 }
 
 export const emptyChatClient = client as unknown as ConvexReactClient
+
+const themedSessionMessages = [
+  {
+    _id: 'theme-fixture-message',
+    _creationTime: 1,
+    sessionId: 'agent-1',
+    role: 'user',
+    sender: { type: 'user', id: 'owner' },
+    status: 'done',
+    selectedVersion: 1,
+    versionCount: 1,
+    segments: [
+      {
+        segmentIndex: 0,
+        parts: [{ type: 'text', text: 'Message from the themed session' }],
+        sizeBytes: 80,
+      },
+    ],
+    sizeBytes: 80,
+  },
+]

@@ -72,3 +72,40 @@ test('explicit theme modes override the system in the preview and after applying
   await expect(root).toHaveCSS('color-scheme', 'dark')
   await expect(preview).toHaveCSS('color-scheme', 'dark')
 })
+
+test('waits for the transcript before starting the theme transition', async ({
+  page,
+}) => {
+  await page.goto(
+    '/?fixture=empty-chat&shellTheme&deferSessionMessages&id=agent-0',
+  )
+  const root = page.locator('html')
+  await expect(root).toHaveCSS('--source-color', '#176b46')
+  await page.evaluate(() => {
+    const root = document.documentElement
+    window.addEventListener('stylechange', () => {
+      const source = getComputedStyle(root).getPropertyValue('--source-color')
+      if (source === '#ad2740') {
+        root.dataset.switchedWithAnimation = String(
+          root.classList.contains('theme-anim'),
+        )
+      }
+    })
+  })
+
+  await page.getByRole('link', { name: 'Switch to themed agent' }).click()
+  await expect(
+    page.getByRole('status', { name: 'Current session' }),
+  ).toHaveText('agent-1')
+  const transcript = page.locator('[data-slot="message-list"]')
+  await expect(
+    transcript.getByRole('progressbar', { name: 'Loading' }),
+  ).toBeVisible()
+  await expect(root).toHaveCSS('--source-color', '#176b46')
+  await page.getByRole('button', { name: 'Resolve session messages' }).click()
+  await expect(
+    transcript.getByText('Message from the themed session'),
+  ).toBeVisible()
+  await expect(root).toHaveCSS('--source-color', '#ad2740')
+  await expect(root).toHaveAttribute('data-switched-with-animation', 'true')
+})
