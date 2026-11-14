@@ -18,6 +18,7 @@ type VirtualizedLayout = {
   transitions: ReadonlyMap<string, RowTransition>
   shift: boolean
   minHeight: number
+  beforePreparing?: { rows: readonly MessageRow[]; height: number }
 }
 
 /** Keeps retained rows from losing their measured space during interior deletions. */
@@ -33,8 +34,10 @@ export function useVirtualizedLayout({
     minHeight: 0,
   })
   if (layout.rows !== rows || layout.transitions !== transitions) {
-    const { shift, minHeight } = nextLayout(layout, rows, virtualizer.current)
-    setLayout({ rows, transitions, shift, minHeight })
+    const instance = virtualizer.current
+    const beforePreparing = getPreparingHeight(layout, transitions, instance)
+    const { shift, minHeight } = nextLayout(layout, rows, instance)
+    setLayout({ rows, transitions, shift, minHeight, beforePreparing })
   }
 
   const onResize = useCallback(() => {
@@ -63,6 +66,23 @@ export function useVirtualizedLayout({
   }
 }
 
+/** Reads the collapsed height before preparing rows can overwrite index measurements. */
+function getPreparingHeight(
+  previous: VirtualizedLayout,
+  transitions: ReadonlyMap<string, RowTransition>,
+  virtualizer: WindowVirtualizerHandle | null,
+) {
+  const preparing = [...transitions.values()].some(
+    (row) => row.phase === 'preparing',
+  )
+  if (!preparing || !virtualizer) return
+  if (previous.beforePreparing !== undefined) return previous.beforePreparing
+  const last = previous.rows.length - 1
+  if (last < 0) return
+  const height = virtualizer.getItemOffset(last) + virtualizer.getItemSize(last)
+  return { rows: previous.rows, height: Math.max(height, previous.minHeight) }
+}
+
 /** Preserves known retained heights until Virtua replaces its index-based cache. */
 function nextLayout(
   previous: VirtualizedLayout,
@@ -79,6 +99,9 @@ function nextLayout(
   if (rows.length > previous.rows.length || shift || !virtualizer) {
     return { shift, minHeight: 0 }
   }
+
+  const restoredHeight = getCanceledPreparationHeight(previous, rows)
+  if (restoredHeight !== undefined) return { shift, minHeight: restoredHeight }
 
   const retained = new Set(rows.map((row) => row.key))
   const closingKeys = new Set(
@@ -101,4 +124,16 @@ function nextLayout(
       }, 0)
     : 0
   return { rows, shift, minHeight }
+}
+
+/** Restores the reservation when a canceled opening returns to the same rows. */
+function getCanceledPreparationHeight(
+  previous: VirtualizedLayout,
+  rows: readonly MessageRow[],
+) {
+  const snapshot = previous.beforePreparing
+  if (snapshot?.rows.length !== rows.length) return
+  if (rows.every((row, index) => row.key === snapshot.rows[index].key)) {
+    return snapshot.height
+  }
 }

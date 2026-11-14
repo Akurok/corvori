@@ -677,63 +677,73 @@ test('opening work at the bottom holds the viewport, then reveals its details', 
   )
 })
 
-for (const finishOpening of [true, false]) {
-  test(`collapsing work at the tail preserves position without bouncing (finishOpening=${finishOpening})`, async ({
+for (const phase of ['preparing', 'opening', 'open'] as const) {
+  test(`collapsing work at the tail preserves position without bouncing (phase=${phase})`, async ({
     page,
   }) => {
     await page.goto('/?fixture=notes&id=notes&tailWork')
     const work = page.locator('[data-slot="work-block"]')
     await expect(work).toBeVisible()
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          let last = -1
-          let stable = 0
-          const tick = () => {
-            const height = document.documentElement.scrollHeight
-            window.scrollTo(0, height)
-            stable = height === last ? stable + 1 : 0
-            last = height
-            if (stable >= 3) resolve()
-            else requestAnimationFrame(tick)
-          }
-          requestAnimationFrame(tick)
+    // Stop auto-follow before setting the starting position.
+    await page.mouse.wheel(0, -1)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const bottom = document.documentElement.scrollHeight - innerHeight
+          window.scrollTo(0, bottom)
+          return bottom - scrollY
         }),
-    )
+      )
+      .toBeLessThanOrEqual(1)
     await expect(work).toBeInViewport({ ratio: 1 })
-    const originalY = await page.evaluate(() => window.scrollY)
-    await work.evaluate((button) => (button as HTMLButtonElement).click())
-    await expect(work).toHaveAttribute('aria-expanded', 'true')
-    if (finishOpening) {
-      await expect(
-        page.locator('[data-slot="virtualized-row-transition"][data-state]'),
-      ).toHaveCount(0)
-    }
 
-    const frames = await work.evaluate(
-      (button) =>
-        new Promise<Array<{ y: number; height: number }>>((resolve) => {
-          const frames: Array<{ y: number; height: number }> = []
-          const tick = () => {
-            frames.push({
-              y: window.scrollY,
-              height: document.documentElement.scrollHeight,
-            })
-            if (frames.length < 45) requestAnimationFrame(tick)
-            else resolve(frames)
-          }
-          button.addEventListener('click', () => requestAnimationFrame(tick), {
-            once: true,
-          })
-          ;(button as HTMLButtonElement).click()
-        }),
-    )
+    const { originalY, positions } = await collapseWorkAtPhase(work, phase)
     await expect(work).toHaveAttribute('aria-expanded', 'false')
-    expect(Math.abs(frames.at(-1)!.y - originalY)).toBeLessThanOrEqual(1)
     expect(
-      Math.max(...frames.map((frame) => Math.abs(frame.y - originalY))),
+      Math.max(...positions.map((y) => Math.abs(y - originalY))),
     ).toBeLessThanOrEqual(1)
   })
+}
+
+async function collapseWorkAtPhase(
+  work: Locator,
+  phase: 'preparing' | 'opening' | 'open',
+) {
+  return work.evaluate(async (trigger, phase) => {
+    const button = trigger as HTMLButtonElement
+    const list = button.closest('[data-row-key]')!.parentElement!
+    const selector = '[data-work-id] [data-slot="virtualized-row-transition"]'
+    const rowInPhase =
+      phase === 'open'
+        ? `${selector}:not([data-state])`
+        : `${selector}[data-state="${phase}"]`
+    const originalY = scrollY
+    const frame = () => new Promise(requestAnimationFrame)
+
+    // Close in the same rendering cycle that commits the requested phase.
+    await new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!list.querySelector(rowInPhase)) return
+        observer.disconnect()
+        button.click()
+        resolve()
+      })
+      observer.observe(list, {
+        attributes: true,
+        attributeFilter: ['data-state'],
+        childList: true,
+        subtree: true,
+      })
+      button.click()
+    })
+
+    const positions = [scrollY]
+    for (let index = 0; index < 45; index++) {
+      await frame()
+      positions.push(scrollY)
+    }
+    return { originalY, positions }
+  }, phase)
 }
 
 test('closing work at the expanded bottom waits for rows without a scroll jump', async ({
