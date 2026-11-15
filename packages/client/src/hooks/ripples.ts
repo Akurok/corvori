@@ -55,15 +55,8 @@ export function useRipples(
     }
   }, [])
 
-  const handlePointerUp = useCallback(
-    (event: PointerEvent) => {
-      const rippleId = activeRipplesRef.current.get(event.pointerId)
-      if (rippleId === undefined) {
-        return
-      }
-
-      activeRipplesRef.current.delete(event.pointerId)
-
+  const fadeRipple = useCallback(
+    (rippleId: string) => {
       setRipples((prev) =>
         prev.map((r) => (r.id === rippleId ? { ...r, shouldFade: true } : r)),
       )
@@ -75,15 +68,7 @@ export function useRipples(
     [fadeDuration],
   )
 
-  const handlePointerLeave = useCallback(
-    (event: PointerEvent) => {
-      setHovered(false)
-      handlePointerUp(event)
-    },
-    [handlePointerUp],
-  )
-
-  const handlePointerDown = useCallback(
+  const startRipple = useCallback(
     (event: PointerEvent) => {
       const clientX = event.clientX
       const clientY = event.clientY
@@ -124,8 +109,8 @@ export function useRipples(
         shouldFade: false,
       }
 
-      activeRipplesRef.current.set(event.pointerId, newRipple.id)
       setRipples((prev) => [...prev, newRipple])
+      return newRipple.id
     },
     [rippleId],
   )
@@ -137,26 +122,14 @@ export function useRipples(
         : (target as React.RefObject<HTMLElement | null>)?.current
     if (!el) return
 
-    el.addEventListener('pointerenter', handlePointerEnter)
-    el.addEventListener('pointerleave', handlePointerLeave)
-    el.addEventListener('pointerdown', handlePointerDown)
-    el.addEventListener('pointerup', handlePointerUp)
-    el.addEventListener('pointercancel', handlePointerUp)
-
-    return () => {
-      el.removeEventListener('pointerenter', handlePointerEnter)
-      el.removeEventListener('pointerleave', handlePointerLeave)
-      el.removeEventListener('pointerdown', handlePointerDown)
-      el.removeEventListener('pointerup', handlePointerUp)
-      el.removeEventListener('pointercancel', handlePointerUp)
-    }
-  }, [
-    target,
-    handlePointerEnter,
-    handlePointerLeave,
-    handlePointerDown,
-    handlePointerUp,
-  ])
+    return bindRippleEvents(el, {
+      activeRipples: activeRipplesRef.current,
+      handlePointerEnter,
+      startRipple,
+      fadeRipple,
+      clearHover: () => setHovered(false),
+    })
+  }, [target, handlePointerEnter, startRipple, fadeRipple])
 
   return ripples.map((ripple) =>
     React.createElement(motion.span, {
@@ -193,6 +166,109 @@ export function useRipples(
       },
     }),
   )
+}
+
+type RippleEvents = {
+  activeRipples: Map<number, string>
+  handlePointerEnter: (event: PointerEvent) => void
+  startRipple: (event: PointerEvent) => string | undefined
+  fadeRipple: (rippleId: string) => void
+  clearHover: () => void
+}
+
+function bindRippleEvents(element: HTMLElement, events: RippleEvents) {
+  const { activeRipples, fadeRipple, clearHover } = events
+  let stopWatching: (() => void) | undefined
+
+  function endPress({ pointerId }: PointerEvent) {
+    const rippleId = activeRipples.get(pointerId)
+    if (rippleId === undefined) return
+
+    activeRipples.delete(pointerId)
+    fadeRipple(rippleId)
+    if (activeRipples.size === 0) stopWatchingPresses()
+  }
+
+  function interruptPresses() {
+    clearHover()
+    for (const rippleId of activeRipples.values()) fadeRipple(rippleId)
+    activeRipples.clear()
+    stopWatchingPresses()
+  }
+
+  function stopWatchingPresses() {
+    stopWatching?.()
+    stopWatching = undefined
+  }
+
+  function watchPresses() {
+    if (activeRipples.size > 0) {
+      stopWatching ??= watchRippleReleases(element, endPress, interruptPresses)
+    }
+  }
+
+  const listeners = new AbortController()
+  const options = { signal: listeners.signal }
+  element.addEventListener('pointerenter', events.handlePointerEnter, options)
+  element.addEventListener(
+    'pointerleave',
+    (event) => {
+      clearHover()
+      endPress(event)
+    },
+    options,
+  )
+  element.addEventListener(
+    'pointerdown',
+    (event) => {
+      endPress(event)
+      const rippleId = events.startRipple(event)
+      if (rippleId === undefined) return
+
+      activeRipples.set(event.pointerId, rippleId)
+      watchPresses()
+    },
+    options,
+  )
+  watchPresses()
+
+  return () => {
+    listeners.abort()
+    stopWatchingPresses()
+  }
+}
+
+function watchRippleReleases(
+  element: HTMLElement,
+  endPress: (event: PointerEvent) => void,
+  interruptPresses: () => void,
+) {
+  const document = element.ownerDocument
+  const view = document.defaultView
+  const listeners = new AbortController()
+  const options = { capture: true, passive: true, signal: listeners.signal }
+
+  view?.addEventListener('pointerup', endPress, options)
+  view?.addEventListener('pointercancel', endPress, options)
+  // A new press with the same pointer supersedes a missed release.
+  view?.addEventListener('pointerdown', endPress, options)
+  view?.addEventListener(
+    'pointermove',
+    (event) => {
+      if (event.buttons === 0) endPress(event)
+    },
+    options,
+  )
+  view?.addEventListener('blur', interruptPresses, { signal: listeners.signal })
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) interruptPresses()
+    },
+    { signal: listeners.signal },
+  )
+
+  return () => listeners.abort()
 }
 
 function backgroundFor(variant?: ButtonVariant, isHovered?: boolean): string {

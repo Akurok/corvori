@@ -1,16 +1,16 @@
 /// <reference types="bun-types" />
 import { useRipples } from '@/hooks/ripples'
-import { afterEach, beforeAll, expect, test } from 'bun:test'
+import { afterEach, beforeAll, expect, jest, test } from 'bun:test'
+import { MotionConfig } from 'framer-motion'
 import { act, useRef } from 'react'
 import { type Root, createRoot } from 'react-dom/client'
-import { setupDom } from '~/tests/setup/dom'
+import { setupReactDom } from '~/tests/setup/dom'
 
-setupDom()
+setupReactDom()
 
 let root: Root | null = null
 
 beforeAll(() => {
-  ;(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true
   HTMLElement.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 200, 48)
 })
 
@@ -18,6 +18,7 @@ afterEach(() => {
   act(() => root?.unmount())
   root = null
   document.body.innerHTML = ''
+  jest.useRealTimers()
 })
 
 function Harness() {
@@ -33,30 +34,97 @@ function Harness() {
   )
 }
 
-async function pointerDown(element: Element, pointerId: number) {
+async function dispatchPointer(
+  element: Element,
+  type: string,
+  options: PointerEventInit = {},
+) {
   await act(async () => {
     element.dispatchEvent(
-      new PointerEvent('pointerdown', {
+      new PointerEvent(type, {
         bubbles: true,
         clientX: 10,
         clientY: 10,
-        pointerId,
+        pointerId: 1,
         pointerType: 'mouse',
+        ...options,
       }),
     )
   })
 }
 
-test('nested action areas do not trigger their containing ripple', async () => {
+async function renderRow() {
   const container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
-  await act(async () => root?.render(<Harness />))
+  await act(async () =>
+    root?.render(
+      <MotionConfig skipAnimations>
+        <Harness />
+      </MotionConfig>,
+    ),
+  )
 
-  const row = container.querySelector('[data-testid="row"]')!
-  await pointerDown(container.querySelector('button')!, 1)
+  return container.querySelector('[data-testid="row"]')!
+}
+
+function advanceTime(milliseconds: number) {
+  act(() => {
+    jest.advanceTimersByTime(milliseconds)
+  })
+}
+
+test('nested action areas do not trigger their containing ripple', async () => {
+  const row = await renderRow()
+  await dispatchPointer(row.querySelector('button')!, 'pointerdown')
   expect(row.querySelector('span')).toBeNull()
 
-  await pointerDown(row, 2)
+  await dispatchPointer(row, 'pointerdown')
   expect(row.querySelector('span')).not.toBeNull()
+})
+
+test('a long hold keeps the ripple until release elsewhere in the window', async () => {
+  jest.useFakeTimers()
+  const row = await renderRow()
+  await dispatchPointer(row, 'pointerdown', { buttons: 1 })
+  await dispatchPointer(row, 'pointermove', { buttons: 1 })
+  advanceTime(30_000)
+  expect(row.querySelector('span')).not.toBeNull()
+
+  document.body.addEventListener(
+    'pointerup',
+    (event) => event.stopPropagation(),
+    { once: true },
+  )
+  await dispatchPointer(document.body, 'pointerup')
+  advanceTime(500)
+  expect(row.querySelector('span')).toBeNull()
+})
+
+test('movement with no buttons pressed ends a press whose release was missed', async () => {
+  jest.useFakeTimers()
+  const row = await renderRow()
+  await dispatchPointer(row, 'pointerdown', { buttons: 1 })
+
+  await dispatchPointer(row, 'pointermove', { buttons: 0 })
+  advanceTime(500)
+  expect(row.querySelector('span')).toBeNull()
+})
+
+test('a new press fades the stale ripple and window blur fades the current one', async () => {
+  jest.useFakeTimers()
+  const row = await renderRow()
+  await dispatchPointer(row, 'pointerdown', { buttons: 1 })
+  const stale = row.querySelector('span')!
+
+  await dispatchPointer(row, 'pointerdown', { buttons: 1 })
+  advanceTime(500)
+  expect(stale.isConnected).toBe(false)
+  expect(row.querySelectorAll('span')).toHaveLength(1)
+
+  await act(async () => {
+    window.dispatchEvent(new Event('blur'))
+  })
+  advanceTime(500)
+  expect(row.querySelector('span')).toBeNull()
 })
