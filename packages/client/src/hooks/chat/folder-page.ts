@@ -2,6 +2,11 @@ import { api } from '@cv/convex/_generated/api'
 import { usePaginatedQuery } from 'convex-helpers/react/cache/hooks'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
+import {
+  FOLDER_PAGE_SIZE,
+  PAGE_STEP,
+  RECENTS_PAGE_SIZE,
+} from './pagination-window'
 import type { SessionGroupPage } from './sessions'
 
 type FolderPageOptions = {
@@ -12,16 +17,15 @@ type FolderPageOptions = {
 
 type FolderPageSnapshot = Pick<SessionGroupPage, 'results' | 'folders'>
 
-/** Coordinates folder-first pages and the root's independent initial allowances. */
+/** Coordinates folder-first pages and flat session lists. */
 export function useFolderPage({
   groupKey,
   search,
   showHidden,
 }: FolderPageOptions): SessionGroupPage {
   const isSearch = groupKey === 'search'
-  const isRoot = groupKey === 'ungrouped'
-  const [budget, setBudget] = useState(isRoot ? 10 : 5)
-  const [rootSessions, setRootSessions] = useState(10)
+  const flatList = isSearch || groupKey === 'recents'
+  const [budget, setBudget] = useState(FOLDER_PAGE_SIZE)
   const [hasLoaded, setHasLoaded] = useState(false)
   const [snapshot, setSnapshot] = useState<FolderPageSnapshot | null>(null)
 
@@ -31,25 +35,21 @@ export function useFolderPage({
     loadMore: loadFolders,
   } = usePaginatedQuery(
     api.sessionFolders.page,
-    isSearch ? 'skip' : { groupKey },
-    { initialNumItems: isRoot ? 10 : 5 },
+    flatList ? 'skip' : { groupKey },
+    { initialNumItems: FOLDER_PAGE_SIZE },
   )
 
   const folderItems = useMemo(
-    () => (isSearch ? [] : folderResults.slice(0, budget)),
-    [isSearch, folderResults, budget],
+    () => folderResults.slice(0, budget),
+    [folderResults, budget],
   )
-  const foldersDone = isSearch || folderStatus === 'Exhausted'
-  const rootSessionBudget = Math.max(
-    rootSessions,
-    budget > 10 && foldersDone ? budget + 10 - folderItems.length : 10,
-  )
+  const foldersDone = folderStatus === 'Exhausted'
   const sessionBudget = isSearch
-    ? 20
-    : isRoot
-      ? rootSessionBudget
+    ? PAGE_STEP
+    : flatList
+      ? RECENTS_PAGE_SIZE
       : Math.max(0, budget - folderItems.length)
-  const needSessions = isSearch || isRoot || (foldersDone && sessionBudget > 0)
+  const needSessions = flatList || (foldersDone && sessionBudget > 0)
 
   const sessions = usePaginatedQuery(
     api.sessions.list,
@@ -71,17 +71,17 @@ export function useFolderPage({
 
   useEffect(() => {
     if (
-      !isSearch &&
+      !flatList &&
       folderStatus === 'CanLoadMore' &&
       folderResults.length < budget
     ) {
       loadFolders(budget - folderResults.length)
     }
-  }, [isSearch, folderStatus, folderResults.length, loadFolders, budget])
+  }, [flatList, folderStatus, folderResults.length, loadFolders, budget])
 
   useEffect(() => {
     if (
-      !isSearch &&
+      !flatList &&
       needSessions &&
       sessionStatus === 'CanLoadMore' &&
       sessionResults.length < sessionBudget
@@ -89,7 +89,7 @@ export function useFolderPage({
       loadSessions(sessionBudget - sessionResults.length)
     }
   }, [
-    isSearch,
+    flatList,
     needSessions,
     sessionStatus,
     sessionResults.length,
@@ -98,7 +98,7 @@ export function useFolderPage({
   ])
 
   const loadingFolders =
-    !isSearch && folderResults.length < budget && !foldersDone
+    !flatList && folderResults.length < budget && !foldersDone
   const loadingSessions =
     needSessions &&
     sessionResults.length < sessionBudget &&
@@ -115,36 +115,27 @@ export function useFolderPage({
 
   const loadMore = useCallback(
     (count: number) => {
-      if (isSearch) return loadSessions(count)
       if (loading) return
       setSnapshot({
         results: sessionResults.slice(0, sessionBudget),
         folders: folderItems,
       })
-      if (isRoot && foldersDone) setRootSessions(sessionBudget + count)
-      else setBudget((current) => current + count)
+      setBudget((current) => current + count)
     },
-    [
-      isSearch,
-      isRoot,
-      foldersDone,
-      loading,
-      loadSessions,
-      sessionResults,
-      sessionBudget,
-      folderItems,
-    ],
+    [loading, sessionResults, sessionBudget, folderItems],
   )
 
   const results = useMemo(
     () => sessionResults.slice(0, sessionBudget),
     [sessionResults, sessionBudget],
   )
-  if (isSearch) return sessions
+
+  if (flatList) return sessions
   if (!hasLoaded && !loading) setHasLoaded(true)
   if (snapshot && !loading) setSnapshot(null)
   if (snapshot && loading)
     return { ...snapshot, status: 'LoadingMore', loadMore }
+
   return {
     results,
     folders: folderItems,

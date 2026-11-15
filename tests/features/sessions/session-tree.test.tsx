@@ -39,14 +39,19 @@ async function render(search = '') {
     document.body.append(container)
     root = createRoot(container)
   }
-  const groupKey = search.trim() ? 'search' : 'ungrouped'
+  const groupKey = search.trim() ? 'search' : 'recents'
+  const chat = { kind: 'session', key: groupKey, id: 'chat' } as const
   await act(async () => {
     root!.render(
       <ConvexProvider client={client}>
         <ConvexQueryCacheProvider>
           <SessionStoreProvider>
             <SessionTree
-              rows={[{ kind: 'session', key: groupKey, id: 'chat' }]}
+              rows={
+                search.trim()
+                  ? [chat]
+                  : [{ kind: 'header', key: groupKey }, chat]
+              }
               collapsed={{}}
               renderRow={() => <span>Test chat</span>}
               search={search}
@@ -65,8 +70,13 @@ test('keeps query and page identities distinct through search and sidebar reopen
   try {
     for (const search of ['', 'chat', 'other', '   ', '']) {
       await render(search)
-      const groupKey = search.trim() ? 'search' : 'ungrouped'
-      expect(document.querySelectorAll('[data-session-page]')).toHaveLength(1)
+      const groupKey = search.trim() ? 'search' : 'recents'
+      const keys = [...document.querySelectorAll('[data-session-page]')].map(
+        (page) => page.getAttribute('data-session-page'),
+      )
+      expect(keys).toEqual(
+        groupKey === 'search' ? ['search'] : ['folders', 'recents'],
+      )
       expect(
         document.querySelector(`[data-session-page="${groupKey}"]`)
           ?.textContent,
@@ -74,7 +84,7 @@ test('keeps query and page identities distinct through search and sidebar reopen
     }
     act(() => root!.render(null))
     await render()
-    expect(document.querySelectorAll('[data-session-page]')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-session-page]')).toHaveLength(2)
     const keyWarnings = errors.mock.calls.filter((args) =>
       args.some((arg) => String(arg).includes('same key')),
     )

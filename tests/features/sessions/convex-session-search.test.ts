@@ -89,6 +89,48 @@ test('filter-only searches span every group in activity order', async () => {
   expect(f.queries).not.toContain('userSessions:search_title')
 })
 
+test('Recents paginates across folders and pins in activity order for the viewer', async () => {
+  const f = fixture()
+  f.add('unfiled', [])
+  f.add('shared', [], undefined, { ownerId: 'user_2' })
+  Object.assign(f.tables.userSessions!.at(-1)!, {
+    role: 'member',
+    folderId: 'design',
+    groupKey: 'design',
+  })
+  f.add('pinned', [], 'project')
+  Object.assign(f.tables.userSessions!.at(-1)!, {
+    pinned: true,
+    groupKey: 'pinned',
+  })
+  f.add('hidden', [])
+  f.tables.userSessions!.at(-1)!.userHidden = true
+  f.add('foreign', [])
+  f.tables.userSessions!.at(-1)!.userId = 'user_2'
+  f.add('child', [], 'design', { parent: 'pinned' })
+
+  const recents = (cursor: string | null, showHidden = false) =>
+    list(f.ctx, {
+      groupKey: 'recents',
+      paginationOpts: { cursor, numItems: 3 },
+      showHidden,
+    })
+  const first = await recents(null)
+  expect(first.page.map((item) => String(item._id))).toEqual([
+    'pinned',
+    'shared',
+  ])
+  expect(first.page[1]!.folderPath).toBe('MyProject / Design')
+  const next = await recents(first.continueCursor)
+  expect(next.page.map((item) => String(item._id))).toEqual(['unfiled'])
+  expect(next.isDone).toBe(true)
+  expect(
+    (await recents(null, true)).page.map((item) => String(item._id)),
+  ).toEqual(['hidden', 'pinned'])
+  f.tables.userSessions![0]!.lastMessageAt = 20
+  expect(String((await recents(null)).page[0]!._id)).toBe('unfiled')
+})
+
 test('combines title relevance with AND clauses and OR alternatives', async () => {
   const f = fixture()
   f.add('match', ['alice', 'code'], 'design')

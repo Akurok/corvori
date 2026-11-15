@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { ChevronRightIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import {
   createContext,
@@ -103,6 +104,56 @@ function CollapsibleTrigger({
   )
 }
 
+type SubtleTriggerProps = React.ComponentProps<'button'> & {
+  divider?: boolean
+}
+
+const dividerClassName =
+  'border-t border-[color:var(--divider-color)] transition-colors motion-reduce:transition-none'
+
+function CollapsibleHoverTrigger({
+  className,
+  children,
+  divider = false,
+  onClick,
+  type = 'button',
+  ...props
+}: SubtleTriggerProps) {
+  const { isOpen, toggle } = useCollapsible()
+
+  return (
+    <button
+      {...props}
+      type={type}
+      data-slot="collapsible-trigger"
+      aria-expanded={isOpen}
+      className={cn(
+        'text-muted-foreground focus-visible:outline-ring flex h-9 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors focus-visible:outline-1 focus-visible:-outline-offset-1 disabled:cursor-default disabled:opacity-50 motion-reduce:transition-none',
+        '[--divider-color:var(--color-border)] focus-visible:[--divider-color:color-mix(in_oklab,var(--color-border)_85%,var(--color-muted-foreground))] enabled:hover:[--divider-color:color-mix(in_oklab,var(--color-border)_85%,var(--color-muted-foreground))]',
+        'focus-visible:text-[color-mix(in_oklab,var(--color-muted-foreground)_88%,var(--color-foreground))] enabled:hover:text-[color-mix(in_oklab,var(--color-muted-foreground)_88%,var(--color-foreground))]',
+        divider && 'grid grid-cols-[1fr_auto_1fr]',
+        className,
+      )}
+      onClick={(event) => {
+        toggle()
+        onClick?.(event)
+      }}
+    >
+      <span className="flex items-center gap-1.5" aria-hidden="true">
+        <ChevronRightIcon
+          className={cn(
+            'size-3 shrink-0 transition-transform motion-reduce:transition-none',
+            isOpen && 'rotate-90',
+          )}
+        />
+        {divider && <span className={cn('flex-1', dividerClassName)} />}
+      </span>
+      <span>{children}</span>
+      {divider && <span className={dividerClassName} aria-hidden="true" />}
+    </button>
+  )
+}
+
 type CollapsibleContentProps = React.ComponentProps<'div'> & {
   outerClassName?: string
   /** Avoid mounting expensive content until opened, then unmount after closing. */
@@ -172,6 +223,7 @@ function CollapsibleContent({
 
 export const Collapsible = Object.assign(CollapsibleRoot, {
   Trigger: CollapsibleTrigger,
+  HoverTrigger: CollapsibleHoverTrigger,
   Content: CollapsibleContent,
 })
 

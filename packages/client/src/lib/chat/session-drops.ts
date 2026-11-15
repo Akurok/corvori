@@ -66,6 +66,11 @@ export function sessionDropConfirmed(
 ): boolean {
   if (!drop.settled) return false
 
+  const recent = pages.recents?.results.find(
+    (item) => item._id === drop.item._id,
+  )
+  if (recent && sessionGroupKey(recent) !== drop.target) return false
+
   const source = pages[drop.source]
   const target = pages[drop.target]
 
@@ -97,17 +102,18 @@ export function projectSessionDrops<T extends GroupPage>(
   )
   return Object.fromEntries(
     Object.entries(pages).map(([key, page]) => {
+      const flatList = key === 'search' || key === 'recents'
       const results = page.results.flatMap((item) => {
         const drop = byId.get(item._id)
         if (!drop) return [item]
-        return key === 'search' ? [{ ...item, ...folderFields(drop.item) }] : []
+        return flatList ? [{ ...item, ...folderFields(drop.item) }] : []
       })
       for (const drop of drops) {
         if (drop.target !== key) continue
         const current = currentById.get(drop.item._id) ?? drop.item
         results.push({ ...current, ...folderFields(drop.item) })
       }
-      if (key !== 'search') results.sort((a, b) => activity(b) - activity(a))
+      if (!flatList) results.sort((a, b) => activity(b) - activity(a))
       return [key, { ...page, results }]
     }),
   )

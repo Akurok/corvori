@@ -23,7 +23,7 @@ export function FolderGroupRow({
   const { active, over } = useDndContext()
   const draggingSession = active?.data.current?.kind === 'session'
   const draggingFolder = active?.data.current?.kind === 'folder'
-  const first = row.kind === 'header' || row.kind === 'separator'
+  const first = row.kind === 'header'
 
   const ownBranch =
     active?.id === row.key ||

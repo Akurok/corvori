@@ -20,7 +20,7 @@ export function sessionListQuery(
       q.search('title', text).eq('userId', ctx.userId).eq('hidden', undefined),
     )
   }
-  if (args.search?.trim()) {
+  if (args.groupKey === 'recents' || args.search?.trim()) {
     return rows
       .withIndex('by_userId_hidden_lastMessageAt', (q) =>
         q.eq('userId', ctx.userId).eq('hidden', undefined),

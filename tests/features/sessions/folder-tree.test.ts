@@ -55,7 +55,6 @@ const pages = {
   g: page(['deep']),
   sibling: page([]),
   b: page([]),
-  ungrouped: page([]),
 }
 
 test('subtree choices apply to unloaded descendants and later individual choices override them', () => {
@@ -111,7 +110,6 @@ test('expanded trees show children before direct sessions with independent pagin
     'header:sibling',
     'root',
     'header:b',
-    'separator:ungrouped',
   ])
   expect(
     rows.find((row) => row.kind === 'header' && row.key === 'a')?.last,
@@ -214,18 +212,12 @@ test('nested drop outlines keep the destination depth and only its branch bounda
   expect(nested.filter((appearance) => appearance.last)).toHaveLength(1)
 })
 
-test('collapsed and default folder highlights close their outlines', () => {
+test('collapsed folder highlights close their outlines', () => {
   const collapsed = flattenSessionTree(nodes, pages, { a: true })
   const header = collapsed.find((row) => row.key === 'a')!
   expect(
     folderDropAppearance(header, { folderId: 'a', placement: 'inside' }),
   ).toMatchObject({ first: true, last: true, highlighted: true })
-  expect(
-    folderDropAppearance(
-      { kind: 'footer', key: 'ungrouped', last: true },
-      { folderId: 'ungrouped', placement: 'inside' },
-    ),
-  ).toMatchObject({ last: true, highlighted: true })
 })
 
 test('folder drag edges insert siblings and centers nest while moving the whole branch', () => {
@@ -406,22 +398,4 @@ test('separately pinned descendants and sessions appear once under Pinned', () =
       .map((row) => row.key),
   ).toEqual(['pinned', 'b'])
   expect(collapsedPinned.some((row) => row.kind === 'session')).toBe(false)
-})
-
-test('unfiled sessions ignore saved collapse state and retain an empty drop surface', () => {
-  const unfiled = { ...pages, ungrouped: page(['loose'], 'CanLoadMore') }
-  const rows = flattenSessionTree(nodes, unfiled, { ungrouped: true })
-  expect(rows.slice(-3)).toEqual([
-    { kind: 'separator', key: 'ungrouped' },
-    { kind: 'session', key: 'ungrouped', id: 'loose' },
-    { kind: 'footer', key: 'ungrouped' },
-  ])
-  expect(
-    flattenSessionTree([], { pinned: page([]), ungrouped: page([]) }, {}).at(
-      -1,
-    ),
-  ).toEqual({
-    kind: 'separator',
-    key: 'ungrouped',
-  })
 })

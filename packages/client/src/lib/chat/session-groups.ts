@@ -18,7 +18,6 @@ export type GroupRow = (
   | { kind: 'header'; key: string }
   | { kind: 'session'; key: string; id: string }
   | { kind: 'footer'; key: string }
-  | { kind: 'separator'; key: string }
 ) &
   GroupRowMetadata
 
@@ -27,7 +26,12 @@ export function flattenSessionGroups(
   keys: string[],
   pages: Record<
     string,
-    { results: SessionListItem[]; status: string; folders?: FolderView[] }
+    {
+      results: SessionListItem[]
+      status: string
+      folders?: FolderView[]
+      showLess?: () => void
+    }
   >,
   collapsed: Record<string, boolean>,
 ): GroupRow[] {
@@ -35,18 +39,9 @@ export function flattenSessionGroups(
   return keys.flatMap((key): GroupRow[] => {
     const page = pages[key]
 
-    const rows: GroupRow[] =
-      key === 'search'
-        ? []
-        : [
-            {
-              kind: key === 'ungrouped' ? 'separator' : 'header',
-              key,
-            },
-          ]
+    const rows: GroupRow[] = key === 'search' ? [] : [{ kind: 'header', key }]
 
-    const collapsible = key !== 'search' && key !== 'ungrouped'
-    if (collapsed[key] && collapsible) return rows
+    if (key !== 'search' && collapsed[key]) return rows
 
     for (const session of page?.results ?? []) {
       if (seen.has(session._id)) continue
@@ -57,7 +52,7 @@ export function flattenSessionGroups(
       page?.status === 'CanLoadMore' || page?.status === 'LoadingMore'
     const emptySearch =
       key === 'search' && page?.status === 'Exhausted' && !page.results.length
-    if (hasMore || emptySearch) {
+    if (hasMore || page?.showLess || emptySearch) {
       rows.push({ kind: 'footer', key })
     }
 
@@ -78,7 +73,7 @@ export function flattenSessionTree(
   )
 
   // Paginated pages already carry ancestry; their combined metadata is a partial tree.
-  const paginated = pages.ungrouped?.folders !== undefined
+  const paginated = pages.folders?.folders !== undefined
   const tree = paginated ? [] : orderedFolderTree(folders)
 
   const displayedFolders = (
@@ -149,7 +144,6 @@ export function flattenSessionTree(
   pinnedEnd.last = true
   pinnedEnd.endingFolderIds = [...(pinnedEnd.endingFolderIds ?? []), 'pinned']
   visit()
-  appendSessions('ungrouped')
 
   return rows
 }

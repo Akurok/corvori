@@ -1,5 +1,8 @@
 import { type Page, expect, test } from '@playwright/test'
-import { seedExpandedFolders } from '~/tests/browser/session-folders-helpers'
+import {
+  seedExpandedFolders,
+  sessionPage,
+} from '~/tests/browser/session-folders-helpers'
 
 test.beforeEach(async ({ page }) => seedExpandedFolders(page))
 
@@ -8,9 +11,8 @@ const longTitle =
     .repeat(4)
     .trim()
 
-function sessionRow(page: Page, title = longTitle) {
-  return page
-    .getByTestId('sidebar')
+function sessionRow(page: Page, title = longTitle, group = 'a') {
+  return sessionPage(page, group)
     .getByRole('button')
     .filter({
       has: page.getByText(title, { exact: true }),
@@ -55,7 +57,7 @@ test('dismisses when the session list or the page scrolls', async ({
 }) => {
   await page.goto('/?fixture=session-folders&manySessions')
   // Keep the trigger visible so Playwright's initial auto-scroll cannot dismiss it.
-  const row = sessionRow(page, 'Pinned session 2')
+  const row = sessionRow(page, 'Pinned session 2', 'pinned')
   await row.click({ button: 'right' })
   await expect(page.getByRole('menu')).toBeVisible()
   await row.evaluate((element) => {

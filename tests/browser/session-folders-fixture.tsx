@@ -16,6 +16,7 @@ import { ConvexProvider, useQuery } from 'convex/react'
 import { useEffect, useState } from 'react'
 
 import {
+  bumpFolderChatActivity,
   resolveSessionQueries,
   sessionFoldersFixtureClient,
   slowFolders,
@@ -78,14 +79,18 @@ function Controls() {
       {(slowSessions || slowFolders) && (
         <button onClick={resolveSessionQueries}>Resolve session queries</button>
       )}
+      {new URLSearchParams(location.search).has('manyFolders') && (
+        <button onClick={bumpFolderChatActivity}>
+          Update folder chat activity
+        </button>
+      )}
       <output data-testid="selected-folder">{selected ?? 'none'}</output>
       <output data-testid="loaded-pages" className="sr-only">
         {JSON.stringify(
           Object.fromEntries(
-            Object.entries(pages).map(([key, page]) => [
-              key,
-              page.results.length,
-            ]),
+            Object.entries(pages)
+              .filter(([key]) => key !== 'folders')
+              .map(([key, page]) => [key, page.results.length]),
           ),
         )}
       </output>

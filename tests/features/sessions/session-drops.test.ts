@@ -144,3 +144,24 @@ test('live activity and search results remain current during independent moves',
   expect(projected.search!.results).toHaveLength(1)
   expect(projected.search!.results[0]?.folderId).toBe('folder')
 })
+
+test('Recents keeps its membership and order while an optimistic move reconciles', () => {
+  const original = {
+    ...item('moving'),
+    folderId: folder._id,
+    folderName: folder.name,
+  }
+  const drop = { ...createSessionDrop(original, 'ungrouped')!, settled: true }
+  const pages = {
+    recents: page([item('first', 20), original]),
+    folder: page([]),
+  }
+  expect(sessionDropConfirmed(drop, pages)).toBe(false)
+  expect(projectSessionDrops(pages, [drop]).recents!.results).toEqual([
+    pages.recents.results[0],
+    drop.item,
+  ])
+  expect(
+    sessionDropConfirmed(drop, { ...pages, recents: page([drop.item]) }),
+  ).toBe(true)
+})

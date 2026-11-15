@@ -1,5 +1,6 @@
 import { Collapsible } from '@/components/ui/collapsible'
 import {
+  RootSessionFoldersQuery,
   type SessionGroupPage,
   SessionGroupPreload,
   SessionGroupQuery,
@@ -10,9 +11,10 @@ import {
   type SessionTreeNode,
   nestSessionRows,
 } from '@/lib/chat/session-groups'
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 
 import { FolderBranchContent } from './folder-branch-content'
+import { RecentsSection } from './recents-section'
 import { SessionPage, type SessionRowRenderer } from './session-page'
 
 type SessionTreeProps = {
@@ -22,6 +24,7 @@ type SessionTreeProps = {
   search: string
   pages: Record<string, SessionGroupPage>
   dragging: boolean
+  organizationPending?: boolean
 }
 
 /** Animates and unloads each folder's contents as one branch. */
@@ -32,10 +35,16 @@ export function SessionTree({
   search,
   pages,
   dragging,
+  organizationPending = false,
 }: SessionTreeProps) {
+  const [recentsOpen, setRecentsOpen] = useState(true)
   const nodes = useMemo(() => nestSessionRows(rows), [rows])
 
-  function renderBranch(node: SessionTreeNode, ancestorOpen = true): ReactNode {
+  function renderBranch(
+    node: SessionTreeNode,
+    ancestorOpen = true,
+    parentKey = 'folders',
+  ): ReactNode {
     const { row, children } = node
     const open = !isFolderCollapsed(collapsed, row.key, row.folderAncestorIds)
     const branchOpen = open && ancestorOpen
@@ -47,8 +56,17 @@ export function SessionTree({
           endingFolderIds: node.endingFolderIds,
         }
 
+    const childBranches = children.filter(
+      (child) => child.row.kind === 'header',
+    )
+
     return (
-      <Collapsible key={row.key} open={open} data-session-folder={row.key}>
+      <Collapsible
+        key={row.key}
+        open={open}
+        data-session-folder={row.key}
+        data-page-entry={parentKey}
+      >
         {renderRow(header)}
         {ancestorOpen && <SessionGroupPreload groupKey={row.key} />}
         <FolderBranchContent
@@ -67,41 +85,68 @@ export function SessionTree({
             page={pages[row.key]}
             disabled={dragging || !branchOpen}
             renderRow={renderRow}
+            branchIds={childBranches.map((child) => child.row.key)}
             animate={false}
           >
-            {children
-              .filter((child) => child.row.kind === 'header')
-              .map((child) => renderBranch(child, branchOpen))}
+            {childBranches.map((child) =>
+              renderBranch(child, branchOpen, row.key),
+            )}
           </SessionPage>
         </FolderBranchContent>
       </Collapsible>
     )
   }
 
+  if (search.trim()) {
+    return (
+      <div key="search">
+        <SessionGroupQuery groupKey="search" search={search} />
+        <SessionPage
+          key={search}
+          groupKey="search"
+          rows={rows}
+          page={pages.search}
+          disabled={dragging}
+          renderRow={renderRow}
+        />
+      </div>
+    )
+  }
+
+  const folderPage = pages.folders
+  const showFolderFooter =
+    folderPage?.showLess ||
+    folderPage?.status === 'CanLoadMore' ||
+    folderPage?.status === 'LoadingMore'
+  const recents = nodes.find((node) => node.row.key === 'recents')
+  const folderBranches = nodes.filter((node) => node !== recents)
+
   return (
-    <>
-      <SessionGroupQuery
-        key={search.trim() ? 'query:search' : 'query:ungrouped'}
-        groupKey={search.trim() ? 'search' : 'ungrouped'}
-        search={search}
-      />
+    <div key="browse">
+      <RootSessionFoldersQuery />
       <SessionPage
-        key={search.trim() ? `page:search:${search}` : 'page:ungrouped'}
-        groupKey={search.trim() ? 'search' : 'ungrouped'}
-        rows={nodes
-          .filter((node) => node.row.kind !== 'header')
-          .map((node) => node.row)}
-        page={pages[search.trim() ? 'search' : 'ungrouped']}
+        groupKey="folders"
+        rows={showFolderFooter ? [{ kind: 'footer', key: 'folders' }] : []}
+        page={folderPage}
         disabled={dragging}
         renderRow={renderRow}
-        folderIds={nodes
-          .filter((node) => node.row.kind === 'header')
-          .map((node) => node.row.key)}
+        branchIds={folderBranches.map(({ row }) => row.key)}
       >
-        {nodes
-          .filter((node) => node.row.kind === 'header')
-          .map((node) => renderBranch(node))}
+        {folderBranches.map((node) => renderBranch(node))}
       </SessionPage>
-    </>
+      <RecentsSection
+        open={recentsOpen}
+        onOpenChange={setRecentsOpen}
+        pending={organizationPending}
+      >
+        <SessionPage
+          groupKey="recents"
+          rows={recents?.children.map((node) => node.row) ?? []}
+          page={pages.recents}
+          disabled={dragging || !recentsOpen}
+          renderRow={renderRow}
+        />
+      </RecentsSection>
+    </div>
   )
 }

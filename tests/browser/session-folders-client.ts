@@ -21,6 +21,7 @@ type FixtureSession = {
   folderId: string
   pinned: boolean
   hidden?: boolean
+  lastMessageAt?: number
 }
 
 const searchFixtures = new URLSearchParams(location.search).has(
@@ -96,6 +97,25 @@ if (new URLSearchParams(location.search).has('manySessions')) {
   ]
 }
 
+if (new URLSearchParams(location.search).has('manyFolders')) {
+  sessions.push({
+    _id: 'unloaded-folder-chat',
+    title: 'Chat in unloaded folder',
+    folderId: 'root-folder-29',
+    pinned: false,
+    lastMessageAt: 1,
+  })
+}
+
+export function bumpFolderChatActivity() {
+  sessions = sessions.map((session) =>
+    session._id === 'unloaded-folder-chat'
+      ? { ...session, lastMessageAt: Date.now() }
+      : session,
+  )
+  update()
+}
+
 const listeners = new Set<() => void>()
 const cache = new Map<string, unknown>()
 const pendingSessionQueries = new Map<string, () => void>()
@@ -156,12 +176,15 @@ function sessionPage(args: Record<string, unknown>) {
     if (session.hidden && !args.showHidden) return false
     if (search.text)
       return session.title.toLowerCase().includes(search.text.toLowerCase())
-    if (raw.trim()) return true
+    if (raw.trim() || args.groupKey === 'recents') return true
     return (
       (session.pinned ? 'pinned' : session.folderId || 'ungrouped') ===
       args.groupKey
     )
   })
+  if (args.groupKey === 'recents') {
+    candidates.sort((a, b) => (b.lastMessageAt ?? 2) - (a.lastMessageAt ?? 2))
+  }
   const { cursor, numItems } = args.paginationOpts as {
     cursor: string | null
     numItems: number

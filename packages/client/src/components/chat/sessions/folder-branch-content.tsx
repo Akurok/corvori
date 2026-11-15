@@ -61,10 +61,13 @@ export function FolderBranchContent({
         } else setRetained(false)
       }
 
+      // Let a page's own height animation resize its containing folders.
+      const pageShrinking = content!.querySelector('[data-page-shrinking]')
       if (
         initial.current ||
         reducedMotion ||
         disabled ||
+        pageShrinking ||
         from === next ||
         !element!.animate
       ) {

@@ -1,5 +1,8 @@
 import { type Page, expect, test } from '@playwright/test'
-import { loadedPages } from '~/tests/browser/session-folders-helpers'
+import {
+  loadedPages,
+  sessionPage,
+} from '~/tests/browser/session-folders-helpers'
 
 const search = (page: Page) =>
   page.getByRole('textbox', { name: 'Search sessions' })
@@ -58,7 +61,7 @@ test('automatically fills sparse results and loads twenty more matches', async (
     .poll(async () => (await loadedPages(page)).search)
     .toBeGreaterThanOrEqual(20)
   const first = (await loadedPages(page)).search
-  const loadMore = results(page).getByRole('button', { name: 'Load more' })
+  const loadMore = results(page).getByRole('button', { name: 'Show more' })
   await expect(loadMore).toBeEnabled()
   const firstTitle = await results(page)
     .getByRole('button')
@@ -72,6 +75,8 @@ test('automatically fills sparse results and loads twenty more matches', async (
   await expect(results(page).getByRole('button').first()).toHaveText(
     firstTitle!,
   )
+  await results(page).getByRole('button', { name: 'Show less' }).click()
+  await expect.poll(async () => (await loadedPages(page)).search).toBe(first)
 })
 
 test('changes a sparse query during loading and restores the tree when cleared', async ({
@@ -99,12 +104,17 @@ test('changes a sparse query during loading and restores the tree when cleared',
 })
 
 test('hidden-session visibility resets a filtered search', async ({ page }) => {
+  const recents = sessionPage(page, 'recents')
+  await expect(recents).toContainText('Design chat')
+  await expect(recents.getByText('Hidden chat')).toHaveCount(0)
   await search(page).fill('agent:"Hidden Agent"')
   await expect(results(page)).toContainText('No matching sessions')
   await page.getByRole('button', { name: 'Session list options' }).click()
   await page.getByRole('menuitemcheckbox', { name: 'Show hidden' }).click()
   await page.keyboard.press('Escape')
   await expect(results(page)).toContainText('Hidden chat')
+  await search(page).fill('')
+  await expect(recents).toContainText('Hidden chat')
 })
 
 test('opens syntax help from the keyboard and restores focus on close', async ({

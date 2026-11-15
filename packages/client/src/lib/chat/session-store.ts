@@ -104,6 +104,7 @@ function sessionDisplayEqual(a: SessionListItem, b: SessionListItem): boolean {
     a.owned === b.owned &&
     a.folderId === b.folderId &&
     a.folderName === b.folderName &&
+    a.folderPath === b.folderPath &&
     a.folderIcon === b.folderIcon &&
     participantsEqual(a.participants, b.participants)
   )

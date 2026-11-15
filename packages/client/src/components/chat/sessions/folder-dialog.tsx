@@ -94,7 +94,7 @@ export function FolderDialog({
         <Dialog.Content>
           <Dialog.Header>
             <Dialog.Title>
-              {folder ? 'Edit folder' : 'Create folder'}
+              {folder ? 'Edit folder' : 'New folder'}
             </Dialog.Title>
           </Dialog.Header>
           <div className="flex flex-col gap-5 py-4">
@@ -257,7 +257,7 @@ export function FolderDialog({
               disabled={busy || !name.trim()}
               onClick={() => void save()}
             >
-              {busy ? 'Saving…' : folder ? 'Save' : 'Create folder'}
+              {busy ? 'Saving…' : folder ? 'Save' : 'New folder'}
             </RippleButton>
           </Dialog.Footer>
         </Dialog.Content>

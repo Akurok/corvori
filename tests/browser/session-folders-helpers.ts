@@ -22,12 +22,14 @@ export async function dragTo(
 ) {
   await waitForFolderAnimations(page)
   const from = (await source.boundingBox())!
-  const to = (await destination.boundingBox())!
   const x = from.x + from.width / 2
   const y = from.y + from.height / 2
   await page.mouse.move(x, y)
   await page.mouse.down()
   await page.mouse.move(x + 12, y, { steps: 3 })
+  await destination.waitFor({ state: 'visible' })
+  await waitForFolderAnimations(page)
+  const to = (await destination.boundingBox())!
   await page.mouse.move(
     to.x + to.width / 2,
     bottom ? to.y + to.height - 10 : to.y + to.height / 2,
@@ -35,6 +37,7 @@ export async function dragTo(
       steps: 12,
     },
   )
+  await page.evaluate(() => new Promise(requestAnimationFrame))
 }
 
 export async function drag(
@@ -60,6 +63,18 @@ export async function folderState(page: Page) {
 
 export const folder = (page: Page, name: string) =>
   page.getByRole('button', { name, exact: true })
+
+export const sessionPage = (page: Page, groupKey: string) =>
+  page.locator(`[data-session-page="${groupKey}"]`)
+
+export const pageControl = (
+  page: Page,
+  groupKey: string,
+  name: 'Show more' | 'Show less' = 'Show more',
+) =>
+  page
+    .locator(`[data-page-footer="${groupKey}"]`)
+    .getByRole('button', { name, exact: true })
 
 export async function pinFolder(page: Page, name: string) {
   await page.getByRole('button', { name: `Options for ${name}` }).click()

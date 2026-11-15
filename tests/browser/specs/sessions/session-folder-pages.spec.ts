@@ -2,44 +2,103 @@ import { expect, test } from '@playwright/test'
 import {
   folder,
   loadedPages,
+  pageControl,
   seedExpandedFolders,
+  sessionPage,
 } from '~/tests/browser/session-folders-helpers'
 
-test('root folders and sessions start at ten while subfolders share their five-item budget', async ({
+test('root folders and Recents paginate independently while subfolders share their five-item budget', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/?fixture=session-folders&manyFolders&manySessions')
   const counts = async () =>
     JSON.parse((await page.getByTestId('loaded-folders').textContent()) ?? '{}')
-  await expect.poll(async () => (await counts()).ungrouped).toBe(10)
-  await expect.poll(async () => (await loadedPages(page)).ungrouped).toBe(10)
+  await expect.poll(async () => (await counts()).folders).toBe(5)
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(10)
   await folder(page, 'Portfolio').click()
   await expect.poll(async () => (await counts()).a).toBe(5)
   await expect.poll(async () => (await loadedPages(page)).a).toBe(0)
   await expect(folder(page, 'Root folder 30')).toHaveCount(0)
   expect((await loadedPages(page))['root-folder-29']).toBeUndefined()
 
-  const childMore = page.locator('[data-page-footer="a"] button')
+  const childMore = pageControl(page, 'a')
   await childMore.click()
   await expect.poll(async () => (await counts()).a).toBe(25)
   await expect.poll(async () => (await loadedPages(page)).a).toBe(0)
   await childMore.click()
   await expect.poll(async () => (await counts()).a).toBe(31)
   await expect.poll(async () => (await loadedPages(page)).a).toBe(14)
+  await pageControl(page, 'a', 'Show less').click()
+  await expect.poll(async () => (await counts()).a).toBe(25)
+  await expect.poll(async () => (await loadedPages(page)).a).toBe(0)
 
-  const rootMore = page.locator('[data-page-footer="ungrouped"] button')
+  const rootMore = pageControl(page, 'folders')
+  const recentsMore = pageControl(page, 'recents')
   await rootMore.click()
-  await expect.poll(async () => (await counts()).ungrouped).toBe(30)
-  await expect.poll(async () => (await loadedPages(page)).ungrouped).toBe(10)
+  await expect.poll(async () => (await counts()).folders).toBe(25)
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(10)
+  const moreBounds = (await rootMore.boundingBox())!
+  const lessBounds = (await pageControl(
+    page,
+    'folders',
+    'Show less',
+  ).boundingBox())!
+  expect(lessBounds.x).toBeGreaterThan(moreBounds.x + moreBounds.width)
+  expect(moreBounds.y).toBe(lessBounds.y)
+  await recentsMore.click()
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(30)
+  await expect.poll(async () => (await counts()).folders).toBe(25)
   await expect(rootMore).toBeEnabled()
   await rootMore.click()
-  await expect.poll(async () => (await counts()).ungrouped).toBe(32)
-  await expect.poll(async () => (await loadedPages(page)).ungrouped).toBe(28)
+  await expect.poll(async () => (await counts()).folders).toBe(32)
+  await expect(rootMore).toHaveCount(0)
+  await expect(recentsMore).toBeEnabled()
+  await pageControl(page, 'folders', 'Show less').click()
+  await expect.poll(async () => (await counts()).folders).toBe(25)
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(30)
+  await pageControl(page, 'recents', 'Show less').click()
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(10)
+  await expect.poll(async () => (await counts()).folders).toBe(25)
+  await expect(pageControl(page, 'recents', 'Show less')).toHaveCount(0)
+  await rootMore.click()
+  await expect.poll(async () => (await counts()).folders).toBe(32)
+})
+
+test('Recents starts open and reacts to activity from an unloaded folder', async ({
+  page,
+}) => {
+  await page.goto('/?fixture=session-folders&manyFolders&manySessions')
+  const trigger = folder(page, 'Recents')
+  const recents = sessionPage(page, 'recents')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(folder(page, 'Pinned')).toHaveAttribute('aria-expanded', 'false')
+  await expect(folder(page, 'Root folder 30')).toHaveCount(0)
+  await expect(recents.getByText('Chat in unloaded folder')).toHaveCount(0)
+  await page
+    .getByRole('button', { name: 'Update folder chat activity' })
+    .click()
+  await expect(recents.getByRole('button').first()).toContainText(
+    'Chat in unloaded folder',
+  )
+  await expect(folder(page, 'Root folder 30')).toHaveCount(0)
+  await recents.getByRole('button', { name: 'Show more', exact: true }).click()
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(30)
+  await trigger.press('Space')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(recents.getByRole('button')).toHaveCount(0)
+  await trigger.press('Enter')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(recents.getByRole('button').first()).toContainText(
+    'Chat in unloaded folder',
+  )
+  await expect.poll(async () => (await loadedPages(page)).recents).toBe(30)
 })
 
 test('Pinned paginates folders before sessions and supports unloaded real ancestors', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await seedExpandedFolders(page)
   await page.goto('/?fixture=session-folders&manySessions&manyPinnedFolders')
   const counts = async () =>
@@ -49,10 +108,13 @@ test('Pinned paginates folders before sessions and supports unloaded real ancest
   await expect(folder(page, 'Pinned folder 6')).toHaveCount(0)
   await folder(page, 'Portfolio').click()
   await expect.poll(async () => (await loadedPages(page)).a).toBeUndefined()
-  await page.locator('[data-page-footer="pinned"] button').click()
+  await pageControl(page, 'pinned').click()
   await expect.poll(async () => (await counts()).pinned).toBe(12)
   await expect.poll(async () => (await loadedPages(page)).pinned).toBe(13)
   await expect(folder(page, 'Pinned folder 12')).toHaveCount(1)
+  await pageControl(page, 'pinned', 'Show less').click()
+  await expect.poll(async () => (await counts()).pinned).toBe(5)
+  await expect.poll(async () => (await loadedPages(page)).pinned).toBe(0)
 })
 
 test('picker searches unloaded folders and inherited collapse choices do not fetch hidden branches', async ({
@@ -65,7 +127,10 @@ test('picker searches unloaded folders and inherited collapse choices do not fet
     'true',
   )
   await page.getByRole('button', { name: 'Collapse all folders' }).click()
-  await page.locator('[data-page-footer="ungrouped"] button').click()
+  await page
+    .getByTestId('sidebar')
+    .getByRole('button', { name: 'Show more' })
+    .click()
   await expect(folder(page, 'Root folder 20')).toHaveAttribute(
     'aria-expanded',
     'false',
@@ -139,7 +204,9 @@ test('folders start collapsed, preload visible pages, and remember expansions on
   await expect(folder(page, 'Design')).toHaveCount(0)
   await page.getByRole('button', { name: 'Resolve session queries' }).click()
   await folder(page, 'Portfolio').click()
-  await expect(page.getByText('Portfolio chat', { exact: true })).toBeVisible()
+  await expect(
+    sessionPage(page, 'a').getByText('Portfolio chat', { exact: true }),
+  ).toBeVisible()
   await expect(folder(page, 'Design')).toHaveAttribute('aria-expanded', 'false')
 
   await folder(page, 'Design').click()
@@ -152,7 +219,9 @@ test('folders start collapsed, preload visible pages, and remember expansions on
   await folder(page, 'Portfolio').click()
   await expect.poll(async () => (await loadedPages(page)).a).toBeUndefined()
   await folder(page, 'Portfolio').click()
-  await expect(page.getByText('Portfolio chat', { exact: true })).toBeVisible()
+  await expect(
+    sessionPage(page, 'a').getByText('Portfolio chat', { exact: true }),
+  ).toBeVisible()
 
   await page.reload()
   await expect(folder(page, 'Portfolio')).toHaveAttribute(
@@ -202,11 +271,27 @@ test('picker preloads before opening without loading indicators and resets addit
   ).toBeVisible()
   await expect(page.getByRole('listbox').getByRole('status')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Load more folders' }).click()
+  await page
+    .getByRole('listbox')
+    .getByRole('button', { name: 'Show more' })
+    .click()
   await page.evaluate(() =>
     window.dispatchEvent(new Event('resolve-folder-queries')),
   )
   await expect(page.getByRole('option')).toHaveCount(41)
+  const visibleDuringShrink = await page
+    .getByRole('listbox')
+    .getByRole('button', { name: 'Show less' })
+    .evaluate(async (button: HTMLButtonElement) => {
+      button.click()
+      const surface = button.closest('[data-page-shrinking]')!
+      const animation = surface.getAnimations()[0]!
+      await animation.ready
+      animation.currentTime = 100
+      return surface.querySelectorAll('[role="option"]').length
+    })
+  expect(visibleDuringShrink).toBe(41)
+  await expect(page.getByRole('option')).toHaveCount(21)
   await page.keyboard.press('Escape')
   await expect(picker).toBeFocused()
   await picker.click()

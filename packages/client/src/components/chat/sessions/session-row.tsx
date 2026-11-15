@@ -18,9 +18,9 @@ import { triggerJsonDownload } from '@/lib/chat/io'
 import { toastError } from '@/lib/notifications'
 import { setSelectedSessionFolder } from '@/lib/ui-settings'
 import { cn } from '@/lib/utils'
-import { useDraggable } from '@dnd-kit/core'
 import { api } from '@cv/convex/_generated/api'
 import type { Id } from '@cv/convex/_generated/dataModel'
+import { useDraggable } from '@dnd-kit/core'
 import { useAction, useMutation } from 'convex/react'
 import {
   BotIcon,
@@ -43,6 +43,7 @@ import { SessionFolderDialog } from './session-folder-dialog'
 
 interface SessionRowProps {
   id: string
+  groupKey: string
   showFolder?: boolean
   dropPending?: boolean
   hasUnreadNotification: boolean
@@ -51,6 +52,7 @@ interface SessionRowProps {
 
 export const SessionRow = memo(function SessionRow({
   id,
+  groupKey,
   showFolder,
   dropPending,
   hasUnreadNotification,
@@ -60,11 +62,6 @@ export const SessionRow = memo(function SessionRow({
   const pin = useMutation(api.sessionFolders.pin)
   const item = useSession(id)
   const userId = useUserProfile()?._id
-  const { setNodeRef, listeners, attributes } = useDraggable({
-    id: `session:${id}`,
-    disabled: dropPending,
-    data: { kind: 'session', sessionId: id, owned: item?.owned },
-  })
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const isActive = useSessionIsActive(id)
   const isStreaming = useSessionIsStreaming(id)
@@ -75,6 +72,12 @@ export const SessionRow = memo(function SessionRow({
   const setHidden = useMutation(api.sessions.setHidden)
   const exportSession = useAction(api.actions.sessions.exportOne)
   const displayTitle = item?.title || item?.firstMessagePreview || 'New chat'
+
+  const { setNodeRef, listeners, attributes } = useDraggable({
+    id: `session:${groupKey}:${id}`,
+    disabled: dropPending,
+    data: { kind: 'session', sessionId: id, groupKey, owned: item?.owned },
+  })
 
   const {
     ref: titleRef,
@@ -210,11 +213,11 @@ export const SessionRow = memo(function SessionRow({
             onSelect={() => setMoving(true)}
           >
             <FolderInputIcon />
-            Move to folder…
+            Move to…
           </ContextMenu.Item>
           <ContextMenu.Item onSelect={() => rename(id)}>
             <PencilIcon />
-            Rename
+            Rename…
           </ContextMenu.Item>
           <ContextMenu.Item onSelect={handleDuplicate}>
             <CopyIcon />

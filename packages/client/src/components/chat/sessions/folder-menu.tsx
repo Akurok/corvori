@@ -1,5 +1,15 @@
 import { ContextMenu, DropdownMenu, RippleButton } from '@/components/ui'
-import { MoreHorizontalIcon, PinIcon, PinOffIcon } from 'lucide-react'
+import {
+  FolderDownIcon,
+  FolderInputIcon,
+  FolderTreeIcon,
+  FolderUpIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PinIcon,
+  PinOffIcon,
+  TrashIcon,
+} from 'lucide-react'
 
 export type FolderMenuActions = {
   edit: () => void
@@ -36,19 +46,20 @@ function FolderMenuItems({
         {pinned ? 'Unpin' : 'Pin'}
       </Item>
       <Item disabled={pending} {...select(actions.createChild)}>
-        Create subfolder…
+        <FolderTreeIcon /> New subfolder…
       </Item>
       <Item disabled={pending} {...select(actions.edit)}>
-        Edit folder…
+        <PencilIcon /> Edit…
       </Item>
+      <Separator />
       <Item disabled={pending} {...select(actions.move)}>
-        Move folder…
+        <FolderInputIcon /> Move to…
       </Item>
       <Item disabled={pending} {...select(() => actions.reorder(-1))}>
-        Move up
+        <FolderUpIcon /> Move up
       </Item>
       <Item disabled={pending} {...select(() => actions.reorder(1))}>
-        Move down
+        <FolderDownIcon /> Move down
       </Item>
       <Separator />
       <Item
@@ -56,7 +67,7 @@ function FolderMenuItems({
         variant="destructive"
         {...select(actions.remove)}
       >
-        Delete folder…
+        <TrashIcon /> Delete
       </Item>
     </>
   )

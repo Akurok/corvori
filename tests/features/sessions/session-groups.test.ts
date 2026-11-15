@@ -12,12 +12,11 @@ const page = (ids: string[], status = 'Exhausted') => ({
 
 test('groups retain manual order and deduplicate rows', () => {
   const rows = flattenSessionGroups(
-    ['pinned', 'b', 'a', 'ungrouped'],
+    ['pinned', 'b', 'a'],
     {
       pinned: page(['p']),
       b: page(['b', 'p'], 'CanLoadMore'),
       a: page(['a']),
-      ungrouped: page([]),
     },
     {},
   )
@@ -29,7 +28,6 @@ test('groups retain manual order and deduplicate rows', () => {
     { kind: 'footer', key: 'b' },
     { kind: 'header', key: 'a' },
     { kind: 'session', key: 'a', id: 'a' },
-    { kind: 'separator', key: 'ungrouped' },
   ])
 })
 
@@ -78,7 +76,7 @@ test('loading and empty Pinned keep a stable header without a placeholder', () =
 })
 
 test('loading groups omit placeholders and retain the load-more footer during pagination', () => {
-  for (const key of ['ungrouped', 'search', 'a']) {
+  for (const key of ['recents', 'search', 'a']) {
     for (const pages of [{}, { [key]: page([], 'LoadingFirstPage') }]) {
       const rows = flattenSessionGroups([key], pages, {})
       expect(rows.some((row) => row.kind === 'footer')).toBe(false)
@@ -120,5 +118,5 @@ test('nested display branches preserve independent pins and collapsed drop bound
   expect(parent.children.map(({ row }) => row.key)).toEqual(['b', 'a'])
   expect(parent.endingFolderIds).toEqual(['a'])
   expect(parent.children[0]!.endingFolderIds).toEqual(['b'])
-  expect(tree[2]!.row.kind).toBe('separator')
+  expect(tree).toHaveLength(2)
 })

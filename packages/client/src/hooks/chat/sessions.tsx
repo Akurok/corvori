@@ -6,17 +6,26 @@ import { createUsableContext } from '@/hooks/context'
 import type { SessionListItem } from '@/lib/chat'
 import type { PaginationMetadata } from '@/lib/chat/message-store'
 import { type SessionStore, createSessionStore } from '@/lib/chat/session-store'
+import { api } from '@cv/convex/_generated/api'
 import type { FolderView } from '@cv/convex/types'
 import { parseSessionSearch } from '@cv/core/session-search/parse'
+import { usePaginatedQuery } from 'convex-helpers/react/cache/hooks'
 import {
   type ReactNode,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
 } from 'react'
 
 import { useFolderPage } from './folder-page'
+import {
+  FOLDER_PAGE_SIZE,
+  PAGE_STEP,
+  RECENTS_PAGE_SIZE,
+  usePaginationWindow,
+} from './pagination-window'
 import { useSessionDrops } from './session-drops'
 import { useSessionSearchPage } from './session-search-page'
 
@@ -42,6 +51,8 @@ export type SessionGroupPage = {
   sessionsDeferred?: boolean
   status: PaginationMetadata['status']
   loadMore: (count: number) => void
+  showLess?: () => void
+  shrinkCount?: number
 }
 
 const [SessionGroupsContext, useSessionGroups] = createUsableContext<{
@@ -95,16 +106,24 @@ export function SessionStoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const results = Object.values(pages).flatMap((page) => page.results)
   useLayoutEffect(() => {
+    const sessionsById = new Map<string, SessionListItem>()
+    for (const [key, page] of Object.entries(pages)) {
+      if (key === 'recents') continue
+      for (const item of page.results) sessionsById.set(item._id, item)
+    }
+    // Folder pages can retain a snapshot while more rows load.
+    for (const item of pages.recents?.results ?? []) {
+      sessionsById.set(item._id, item)
+    }
     store.sync({
-      results,
+      results: [...sessionsById.values()],
       loadMore: () => {},
       status: 'Exhausted',
       activeId,
       streamingIds,
     })
-  }, [store, results, activeId, streamingIds])
+  }, [store, pages, activeId, streamingIds])
 
   return (
     <SessionStoreContext.Provider value={store}>
@@ -129,6 +148,27 @@ export function SessionStoreProvider({ children }: { children: ReactNode }) {
 export function SessionGroupPreload({ groupKey }: { groupKey: string }) {
   const { showHidden } = useSessionShowHidden()
   useFolderPage({ groupKey, search: '', showHidden })
+  return null
+}
+
+const EMPTY_SESSIONS: SessionListItem[] = []
+
+/** Publishes top-level folders independently of Recents and its visibility filter. */
+export function RootSessionFoldersQuery() {
+  const {
+    results: folders,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.sessionFolders.page,
+    { groupKey: 'ungrouped' },
+    { initialNumItems: FOLDER_PAGE_SIZE },
+  )
+  const page = useSessionPageWindow(
+    { results: EMPTY_SESSIONS, status, loadMore, folders },
+    FOLDER_PAGE_SIZE,
+  )
+  usePublishGroupPage('folders', page)
   return null
 }
 
@@ -163,34 +203,99 @@ function SessionGroupLoader({
   search,
   showHidden,
 }: SessionGroupLoaderProps) {
-  const publish = usePublishSessionPage()
   const candidates = useFolderPage({ groupKey, search, showHidden })
   const hasFilters = parseSessionSearch(search).clauses.length > 0
-  const { results, status, loadMore } = useSessionSearchPage(
-    candidates,
-    hasFilters,
+  const matches = useSessionSearchPage(candidates, hasFilters)
+  const initialSize =
+    groupKey === 'search'
+      ? PAGE_STEP
+      : groupKey === 'recents'
+        ? RECENTS_PAGE_SIZE
+        : FOLDER_PAGE_SIZE
+  const page = useSessionPageWindow(
+    {
+      ...matches,
+      folders: candidates.folders,
+      sessionsDeferred: candidates.sessionsDeferred,
+    },
+    initialSize,
   )
+  usePublishGroupPage(groupKey, page)
+  return null
+}
+
+function useSessionPageWindow(page: SessionGroupPage, initialSize: number) {
+  const { folders, results, status, loadMore } = page
+  const folderCount = folders?.length ?? 0
+  const {
+    visible,
+    status: windowStatus,
+    showMore,
+    showLess,
+    shrinkCount,
+  } = usePaginationWindow({
+    initialSize,
+    loaded: folderCount + results.length,
+    status,
+    loadMore,
+  })
+  const sessionCount = Math.max(0, visible - folderCount)
+
+  return {
+    results: useMemo(
+      () =>
+        results.length <= sessionCount
+          ? results
+          : results.slice(0, sessionCount),
+      [results, sessionCount],
+    ),
+    folders: useMemo(
+      () => (folderCount <= visible ? folders : folders?.slice(0, visible)),
+      [folders, folderCount, visible],
+    ),
+    status: windowStatus,
+    loadMore: showMore,
+    showLess,
+    shrinkCount,
+    sessionsDeferred:
+      page.sessionsDeferred || (visible <= folderCount && folderCount > 0),
+  }
+}
+
+function usePublishGroupPage(groupKey: string, page: SessionGroupPage) {
+  const publish = usePublishSessionPage()
+  const {
+    results,
+    status,
+    loadMore,
+    showLess,
+    shrinkCount,
+    folders,
+    sessionsDeferred,
+  } = page
 
   useLayoutEffect(() => {
     publish(groupKey, {
       results,
       status,
       loadMore,
-      folders: candidates.folders,
-      sessionsDeferred: candidates.sessionsDeferred,
+      showLess,
+      shrinkCount,
+      folders,
+      sessionsDeferred,
     })
   }, [
     groupKey,
     results,
     status,
     loadMore,
-    candidates.folders,
-    candidates.sessionsDeferred,
+    showLess,
+    shrinkCount,
+    folders,
+    sessionsDeferred,
     publish,
   ])
   useLayoutEffect(() => () => publish(groupKey, null), [groupKey, publish])
-
-  return null
 }
 
 export function useSessionIds(): string[] {

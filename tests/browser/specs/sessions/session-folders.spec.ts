@@ -1,12 +1,14 @@
-import { expect, test } from '@playwright/test'
 import { APP_ID } from '@cv/core/const'
+import { expect, test } from '@playwright/test'
 import {
   drag,
   folder,
   folderState,
   loadedPages,
   openSessionFolders,
+  pageControl,
   pinFolder,
+  sessionPage,
 } from '~/tests/browser/session-folders-helpers'
 
 test.beforeEach(async ({ page }) => openSessionFolders(page))
@@ -83,27 +85,40 @@ test('folder buttons have independent focus and matching menus, and Compose targ
   await expect(header).toHaveAttribute('aria-expanded', 'true')
 })
 
-test('pinned parent, child, and session appear once and restore their original location', async ({
+test('pinned folders and sessions keep their original location and sessions stay in Recents', async ({
   page,
 }) => {
   await pinFolder(page, 'Portfolio')
   await pinFolder(page, 'Design')
   await expect(folder(page, 'Portfolio')).toHaveCount(1)
   await expect(folder(page, 'Design')).toHaveCount(1)
-  await page
+  await sessionPage(page, 'n')
     .getByRole('button', { name: 'Design chat', exact: false })
     .click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Pin', exact: true }).click()
   await expect(
-    page.getByRole('button', { name: 'Design chat', exact: false }),
+    sessionPage(page, 'pinned').getByRole('button', {
+      name: 'Design chat',
+      exact: false,
+    }),
   ).toHaveCount(1)
+  await expect(
+    sessionPage(page, 'n').getByText('Design chat', { exact: true }),
+  ).toHaveCount(0)
   await folder(page, 'Portfolio').click()
-  await expect(page.getByText('Portfolio chat', { exact: true })).toBeHidden()
+  await expect(
+    sessionPage(page, 'a').getByText('Portfolio chat', { exact: true }),
+  ).toBeHidden()
   await expect(folder(page, 'Design')).toBeVisible()
   await folder(page, 'Pinned').click()
   await expect(folder(page, 'Portfolio')).toBeHidden()
   await expect(folder(page, 'Design')).toBeHidden()
-  await expect(page.getByText('Design chat', { exact: true })).toBeHidden()
+  await expect(
+    sessionPage(page, 'pinned').getByText('Design chat', { exact: true }),
+  ).toBeHidden()
+  await expect(
+    sessionPage(page, 'recents').getByText('Design chat', { exact: true }),
+  ).toBeVisible()
   await folder(page, 'Pinned').click()
   await page
     .locator(
@@ -124,7 +139,7 @@ test('pinned parent, child, and session appear once and restore their original l
   ).toMatchObject({ parentId: 'a', pinned: false })
 })
 
-test('folder drops pin without reparenting, moves preserve pins, and the separator accepts sessions', async ({
+test('folder drops pin without reparenting and moves preserve pins', async ({
   page,
 }) => {
   await drag(page, folder(page, 'Design'), folder(page, 'Pinned'))
@@ -148,35 +163,60 @@ test('folder drops pin without reparenting, moves preserve pins, and the separat
   expect(
     (await folderState(page)).find((entry) => entry._id === 'n')?.pinned,
   ).toBe(true)
-  const separator = page.getByRole('separator', {
-    name: 'Sessions without a folder',
+})
+
+test('dropping folder and Pinned rows into Recents clears their folder and pin', async ({
+  page,
+}) => {
+  const target = folder(page, 'Recents')
+  await drag(
+    page,
+    sessionPage(page, 'a').getByRole('button', {
+      name: 'Portfolio chat',
+      exact: false,
+    }),
+    sessionPage(page, 'recents').getByText('Portfolio chat', { exact: true }),
+  )
+  await expect(
+    sessionPage(page, 'a').getByText('Portfolio chat', { exact: true }),
+  ).toHaveCount(0)
+  const folderDesign = sessionPage(page, 'n').getByRole('button', {
+    name: 'Design chat',
+    exact: false,
   })
-  await expect(separator).toBeVisible()
-  await expect(folder(page, 'Ungrouped')).toHaveCount(0)
-  await drag(
-    page,
-    page.getByRole('button', { name: 'Portfolio chat', exact: false }),
-    separator,
-  )
+  await folderDesign.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Pin', exact: true }).click()
+  await expect(
+    sessionPage(page, 'pinned').getByText('Design chat', { exact: true }),
+  ).toBeVisible()
   await folder(page, 'Portfolio').click()
-  await expect(page.getByText('Portfolio chat', { exact: true })).toBeVisible()
-  await drag(
-    page,
-    page.getByRole('button', { name: 'Design chat', exact: false }),
-    separator,
-  )
-  await folder(page, 'Design').click()
-  await expect(page.getByText('Design chat', { exact: true })).toBeVisible()
+  const pinnedDesign = sessionPage(page, 'pinned').getByRole('button', {
+    name: 'Design chat',
+    exact: false,
+  })
+  // The header is still a drop target when Recents is collapsed.
+  await target.click()
+  await drag(page, pinnedDesign, target)
+  await expect(
+    sessionPage(page, 'pinned').getByText('Design chat', { exact: true }),
+  ).toHaveCount(0)
+  await folder(page, 'Portfolio').click()
+  await expect(folderDesign).toHaveCount(0)
+  await target.click()
+  await expect(
+    sessionPage(page, 'recents').getByText('Design chat'),
+  ).toBeVisible()
   await page
     .getByRole('textbox', { name: 'Search sessions' })
     .fill('Portfolio chat')
-  await expect(separator).toHaveCount(0)
+  await expect(target).toHaveCount(0)
   await expect(page.getByText('Portfolio chat', { exact: true })).toHaveCount(1)
 })
 
 test('folder controls retain sibling collapse state and refresh pin actions after page updates', async ({
   page,
 }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/?fixture=session-folders&manySessions')
   await folder(page, 'Corvori').click()
   await expect.poll(async () => (await loadedPages(page)).b).toBeUndefined()
@@ -184,11 +224,7 @@ test('folder controls retain sibling collapse state and refresh pin actions afte
   await expect.poll(async () => (await loadedPages(page)).a).toBeUndefined()
   await folder(page, 'Portfolio').click()
   await expect.poll(async () => (await loadedPages(page)).a).toBe(4)
-  await page
-    .locator('[data-session-folder="a"]')
-    .getByRole('button', { name: 'Load more' })
-    .last()
-    .click()
+  await pageControl(page, 'a').click()
   await expect.poll(async () => (await loadedPages(page)).a).toBe(24)
 
   for (const pinned of [true, false, true, false]) {

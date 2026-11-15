@@ -2,6 +2,8 @@ import type { SessionGroupPage } from '@/hooks/chat/sessions'
 import { useReducedMotion } from 'motion/react'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 
+import { PAGE_STEP } from './pagination-window'
+
 type PageReveal = {
   ids: string[]
   height: number
@@ -89,9 +91,7 @@ export function useSessionPageReveal({
     const element = ref.current
     if (!request || !element) return
 
-    const previousIds = new Set(request.ids)
-    const retainedIds = ids.filter((id) => !id.startsWith('folder:') || previousIds.has(id)) // prettier-ignore
-    const samePrefix = request.ids.every((id, index) => retainedIds[index] === id) // prettier-ignore
+    const samePrefix = request.ids.every((id, index) => ids[index] === id)
     const canceled = disabled || reducedMotion || !samePrefix
     const changedDuringReveal = request.phase === 'revealing' && ids.length !== request.ids.length // prettier-ignore
 
@@ -126,7 +126,7 @@ export function useSessionPageReveal({
         phase: 'requested',
       }
     }
-    page.loadMore(20)
+    page.loadMore(PAGE_STEP)
   }
 
   return { ref, contentRef, loadMore, revealing }

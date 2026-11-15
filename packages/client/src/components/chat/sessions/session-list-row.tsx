@@ -25,23 +25,20 @@ export const SessionListRow = memo(function SessionListRow({
   showFolder,
   rename,
 }: SessionListRowProps) {
+  const flatList = row.key === 'search' || row.key === 'recents'
   const content = (
-    <div
-      className={cn(
-        'py-0.5',
-        row.key !== 'search' && row.key !== 'ungrouped' && 'ps-3',
-      )}
-    >
+    <div className={cn('py-0.5', !flatList && 'ps-3')}>
       <SessionRow
         showFolder={showFolder}
         id={row.id}
+        groupKey={row.key}
         dropPending={dropPending}
         hasUnreadNotification={hasUnreadNotification}
         rename={rename}
       />
     </div>
   )
-  if (row.key === 'search') return content
+  if (flatList) return content
   return (
     <FolderGroupRow
       row={row}
