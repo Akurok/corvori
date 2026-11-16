@@ -189,8 +189,8 @@ function RowShell({ message, messageMeta, row, children }: RowShellProps) {
           'relative z-10 flex min-w-0 flex-col items-start',
           // Grow leftwards into the gutter when there is one
           '-ml-(--message-gutter,0px) w-[calc(100%+var(--message-gutter,0px))] pl-(--message-gutter,0px)',
-          // On mobile, long press will open the context menu instead
-          isTouchDevice() && 'select-none [-webkit-touch-callout:none]',
+          // Keep long presses from selecting transcript text on mobile
+          isTouchDevice() && 'select-none',
           roleClass,
         )}
       >

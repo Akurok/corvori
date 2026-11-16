@@ -34,7 +34,7 @@ export function SessionSettingsSection() {
       />
       <SettingsList.NumberInput
         label="Hand-off delay"
-        description="Seconds to change or cancel an agent's hand-off."
+        description="Seconds before the next turn is handed off to another agent."
         value={toSeconds(settings?.yieldConfirmMs ?? DEFAULT_YIELD_CONFIRM_MS)}
         defaultValue={toSeconds(DEFAULT_YIELD_CONFIRM_MS)}
         minValue={0}

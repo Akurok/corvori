@@ -316,7 +316,10 @@ export async function changeSummary(
     )
     .first()
   if (!row || row.phase === 'empty') return null
-  if (row.phase === 'ready' && !row.fileCount) return null
+  const pending = row.phase === 'capturing' || row.phase === 'queued'
+  // Capture starts before any tool runs. Show a summary once it has files
+  // to report, or if capture failed.
+  if (!row.fileCount && (pending || row.phase === 'ready')) return null
 
   const group = await ctx.db
     .query('changeSets')

@@ -68,7 +68,7 @@ type YieldConfirmationProps = {
   actions: NonNullable<ReturnType<typeof useYieldRequest>['actions']>
 }
 
-/** The one-off confirmation any member can change or cancel. */
+/** The one-off confirmation any member can confirm, change, or cancel. */
 function YieldConfirmation({
   messageId,
   requestedName,
@@ -99,13 +99,23 @@ function YieldConfirmation({
   return (
     <div
       data-slot="yield-block"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm"
+      className="flex flex-col flex-wrap gap-3 text-sm"
     >
-      <span className="min-w-0">
-        {requester} is requesting {target?.name ?? requestedName} to respond
-        next…
-      </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2">
+        <span className="flex min-w-0 flex-wrap">
+          {requester} is requesting {target?.name ?? requestedName} to respond
+          next…
+        </span>
+        {fireAt !== undefined && (
+          <span className="text-muted-foreground text-xs">
+            Proceeding automatically in {Math.ceil(remaining / 1000)}s
+          </span>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <RippleButton size="sm" onClick={() => void actions.accept()}>
+          Confirm
+        </RippleButton>
         <AgentCombobox
           agents={candidates}
           open={pickerOpen}
@@ -113,7 +123,7 @@ function YieldConfirmation({
           onValueChange={(next) => void actions.accept(next as Id<'agents'>)}
           emptyLabel="No other agents in this session."
           trigger={
-            <Combobox.Trigger variant="surface" size="sm" className="w-fit">
+            <Combobox.Trigger variant="input" size="sm" className="w-fit">
               Change
             </Combobox.Trigger>
           }
@@ -125,11 +135,6 @@ function YieldConfirmation({
         >
           Cancel
         </RippleButton>
-        {fireAt !== undefined && (
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {Math.ceil(remaining / 1000)}s
-          </span>
-        )}
       </div>
     </div>
   )

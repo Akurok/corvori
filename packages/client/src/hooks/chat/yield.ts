@@ -19,7 +19,7 @@ export function useYieldRequest(toolCallId: string) {
     if (!sessionId) return null
     const args = { sessionId, toolCallId }
     return {
-      accept: (agentId: Id<'agents'>) => accept({ ...args, agentId }),
+      accept: (agentId?: Id<'agents'>) => accept({ ...args, agentId }),
       pause: () => pause(args),
       cancel: () => cancel(args),
     }

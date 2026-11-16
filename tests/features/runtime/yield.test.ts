@@ -1,4 +1,5 @@
 /// <reference types="bun-types" />
+import { internal } from '@cv/convex/_generated/api'
 import {
   acceptYield,
   cancelYield,
@@ -30,10 +31,17 @@ type Fixture = {
   /** Scheduled acceptance time; omit for a paused request. */
   fireAt?: number
   linked?: string[]
+  changeSet?: Row
 }
 
 /** A session where Bob's turn holds one yield call. */
-function fixture({ phase, name = 'Alice', fireAt, linked }: Fixture) {
+function fixture({
+  phase,
+  name = 'Alice',
+  fireAt,
+  linked,
+  changeSet,
+}: Fixture) {
   const parked = phase === 'awaiting_input'
   const stream: Row = {
     _id: 'stream_1',
@@ -76,6 +84,7 @@ function fixture({ phase, name = 'Alice', fireAt, linked }: Fixture) {
       { _id: 'message_1', _creationTime: 2, selectedVersion: 1 },
       { _id: 'user_1', role: 'user' },
       ...agents,
+      ...(changeSet ? [changeSet] : []),
     ],
     contents: [content],
     settings: { _id: 'settings_1', displayName: 'Ada' },
@@ -87,16 +96,21 @@ function fixture({ phase, name = 'Alice', fireAt, linked }: Fixture) {
     agentId,
   }))
   const cancelled: string[] = []
-  const ctx = withSessionTables(base, { stream, links, cancelled })
+  const ctx = withSessionTables(base, { stream, links, cancelled, changeSet })
   return { ...base, ctx, stream, session, content, cancelled }
 }
 
-type SessionTables = { stream: Row; links: Row[]; cancelled: string[] }
+type SessionTables = {
+  stream: Row
+  links: Row[]
+  cancelled: string[]
+  changeSet?: Row
+}
 
 /** Adds the membership, link and stream lookups the shared fake leaves empty. */
 function withSessionTables(
   base: ReturnType<typeof fakeCtx>,
-  { stream, links, cancelled }: SessionTables,
+  { stream, links, cancelled, changeSet }: SessionTables,
 ) {
   const inner = base.ctx as unknown as {
     db: { query: (table: string) => Record<string, unknown> }
@@ -113,6 +127,9 @@ function withSessionTables(
     },
     streams: {
       first: async () => (base.deletes.includes(stream._id) ? null : stream),
+    },
+    changeSets: {
+      first: async () => changeSet ?? null,
     },
   }
 
@@ -254,6 +271,28 @@ describe('yield resolution', () => {
     ])
   })
 
+  test('a member can confirm the requested agent before the countdown ends', async () => {
+    const { ctx, session, content, inserts, cancelled } = fixture({
+      phase: 'awaiting_input',
+      fireAt: Date.now() + 5000,
+    })
+
+    await acceptYield(ctx, args)
+    await expireYield(ctx, {
+      streamId: 'stream_1' as never,
+      toolCallId: 'yield_1',
+    })
+
+    expect(cancelled).toEqual(['job_countdown'])
+    expect((content.parts as unknown[])[0]).toMatchObject({
+      output: { accepted: true, agent: 'Alice' },
+    })
+    expect(session.activeAgentId).toBe('agent_alice')
+    expect(nextTurns(inserts)).toEqual([
+      expect.objectContaining({ agentId: 'agent_alice', invokedBy: 'user_2' }),
+    ])
+  })
+
   test('rejects picking an agent that is not linked', async () => {
     const { ctx, session } = fixture({
       phase: 'awaiting_input',
@@ -268,10 +307,13 @@ describe('yield resolution', () => {
   })
 
   test('cancelling ends the turn without switching agents', async () => {
-    const { ctx, session, content, deletes, inserts, cancelled } = fixture({
-      phase: 'awaiting_input',
-      fireAt: Date.now() + 5000,
-    })
+    const changeSet = { _id: 'changes_1', phase: 'capturing', fileCount: 0 }
+    const { ctx, session, content, deletes, inserts, cancelled, scheduled } =
+      fixture({
+        phase: 'awaiting_input',
+        fireAt: Date.now() + 5000,
+        changeSet,
+      })
 
     await cancelYield(ctx, args)
 
@@ -283,6 +325,14 @@ describe('yield resolution', () => {
     expect(session.activeAgentId).toBe('agent_bob')
     expect(deletes).toContain('stream_1')
     expect(nextTurns(inserts)).toEqual([])
+    expect(changeSet).toMatchObject({ finished: true })
+    expect(scheduled).toContainEqual({
+      args: [
+        0,
+        internal.actions.workspaces._finishChanges,
+        { changeSetId: changeSet._id },
+      ],
+    })
 
     await expect(cancelYield(ctx, args)).rejects.toThrow(
       'No yield request is pending',

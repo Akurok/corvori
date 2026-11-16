@@ -31,7 +31,7 @@ export const TOOL_CAPABILITIES = [
   {
     name: 'yield',
     label: 'Hand off turns',
-    description: 'Let another agent in the session respond next.',
+    description: 'Let another agent respond next.',
     category: 'general',
     tools: ['yield'],
   },
