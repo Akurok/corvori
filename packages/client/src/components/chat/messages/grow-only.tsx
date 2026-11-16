@@ -25,6 +25,8 @@ const SETTLE_MAX_FRAMES = 40
 type GrowOnlyProps = React.ComponentPropsWithoutRef<'div'> & {
   /** When this changes, the growth is released. */
   growKey?: string | number
+  /** Let the content shrink as this element changes width. */
+  widthRef?: React.RefObject<HTMLElement | null>
 }
 
 /** A component that never shrinks in height unless `release` is called. */
@@ -32,6 +34,7 @@ export function GrowOnly({
   children,
   className,
   growKey,
+  widthRef,
   ...rest
 }: GrowOnlyProps) {
   const contentRef = useRef<HTMLDivElement>(null)
@@ -119,28 +122,44 @@ export function GrowOnly({
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
+
+    const widthElement = widthRef?.current ?? el
     const shrinkFrames = shrinkFramesRef.current
-    let lastWidth = el.getBoundingClientRect().width
+    let lastWidth = widthElement.getBoundingClientRect().width
+
     const observer = new ResizeObserver(() => {
       if (followingRef.current || shrinkOperationsRef.current.size) return
+
       const rect = el.getBoundingClientRect()
-      const widthChanged = Math.abs(rect.width - lastWidth) > 0.5
-      lastWidth = rect.width
-      if (widthChanged) {
+      const width =
+        widthElement === el
+          ? rect.width
+          : widthElement.getBoundingClientRect().width
+      const widthChanged = Math.abs(width - lastWidth) > 0.5
+      lastWidth = width
+
+      if (widthChanged && widthElement !== el) {
+        // The content height can keep changing through layout transitions.
+        release()
+      } else if (widthChanged) {
         floorRef.current = rect.height
         setMinHeight(rect.height)
       } else {
         grow(rect.height)
       }
     })
+
     observer.observe(el)
+    if (widthElement !== el)
+      observer.observe(widthElement, { box: 'border-box' })
+
     return () => {
       observer.disconnect()
       cancelRef.current?.()
       for (const frame of shrinkFrames) cancelAnimationFrame(frame)
       shrinkFrames.clear()
     }
-  }, [grow])
+  }, [grow, release, widthRef])
 
   const value = useMemo(
     () => ({ release, beginShrink }),

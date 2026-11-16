@@ -72,6 +72,38 @@ test('opens a lone thought directly from the sender header', async ({
   await expect(page.getByText('First thinking block.')).toBeVisible()
 })
 
+test('keeps a tighter gap below the header only with a gutter avatar', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 760 })
+  await page.goto('/?fixture=notes&id=notes&thinkingWork=single&composer')
+
+  const header = page.locator('[data-slot="message-header"]')
+  const geometry = () =>
+    header.evaluate((element) => {
+      const headerRow = element.closest('[data-row-kind="header"]')!
+      const avatar = element.querySelector('[data-slot="avatar"]')!
+      const message = headerRow.nextElementSibling!.querySelector(
+        '[data-slot="message-group"]',
+      )!
+      const headerBox = element.getBoundingClientRect()
+      return {
+        inGutter: avatar.getBoundingClientRect().right <= headerBox.left,
+        gap: message.getBoundingClientRect().top - headerBox.bottom,
+      }
+    })
+
+  await expect(page.getByText('Finished thinking.')).toBeVisible()
+  await expect.poll(geometry).toEqual({ inGutter: false, gap: 17 })
+  await page.setViewportSize({ width: 960, height: 760 })
+  await expect.poll(geometry).toEqual({ inGutter: true, gap: 9 })
+  await page.reload()
+  await expect(page.getByText('Finished thinking.')).toBeVisible()
+  await expect.poll(geometry).toEqual({ inGutter: true, gap: 9 })
+  await page.setViewportSize({ width: 720, height: 760 })
+  await expect.poll(geometry).toEqual({ inGutter: false, gap: 17 })
+})
+
 for (const mixed of [false, true]) {
   test(`work sums thinking durations and reveals every thinking block (mixed=${mixed})`, async ({
     page,

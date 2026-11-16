@@ -20,7 +20,7 @@ import { messageDisplayRole } from '@/lib/chat/sender-groups'
 import { cn, formatDuration, isTouchDevice } from '@/lib/utils'
 import { toDisplayName } from '@cv/core/utils/names'
 import { type UIMessage, isReasoningUIPart } from 'ai'
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useRef } from 'react'
 
 import { ChangesSummary } from './changes/changes-summary'
 import { ContextDivider } from './context-divider'
@@ -127,6 +127,9 @@ type RowShellProps = {
 }
 
 function RowShell({ message, messageMeta, row, children }: RowShellProps) {
+  const rowRef = useRef<HTMLDivElement>(null)
+  // The header's row includes the gutter, even when the text column stays fixed.
+  const headerWidthRef = row.kind === 'header' ? rowRef : undefined
   const session = useActiveSession()
   const profile = useUserProfile()
   const isStreaming = useIsMessageStreaming(message.id)
@@ -182,6 +185,7 @@ function RowShell({ message, messageMeta, row, children }: RowShellProps) {
       canMutate={canMutate}
     >
       <div
+        ref={headerWidthRef}
         data-slot="message-row"
         data-role={role}
         data-message-id={message.id}
@@ -197,7 +201,9 @@ function RowShell({ message, messageMeta, row, children }: RowShellProps) {
         {row.kind === 'footer' ? (
           children
         ) : (
-          <GrowOnly growKey={growKey}>{children}</GrowOnly>
+          <GrowOnly growKey={growKey} widthRef={headerWidthRef}>
+            {children}
+          </GrowOnly>
         )}
       </div>
     </MessageContextMenu>

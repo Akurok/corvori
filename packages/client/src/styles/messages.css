@@ -22,6 +22,13 @@
     --message-summary-padding-y: --spacing(2.5);
   }
 
+  .chat-message-header-gap {
+    height: max(
+      var(--message-compact-block-gap),
+      calc(var(--message-block-gap) - var(--message-gutter, 0px))
+    );
+  }
+
   .chat-work-header {
     padding-block: var(--work-header-padding-y);
   }

@@ -81,13 +81,13 @@ function initialMessages() {
       },
     ]
   }
+  if (params.has('thinkingWork')) return thinkingWorkMessages()
   if (params.has('shellComposer') || params.has('composer')) {
     return Array.from({ length: 32 }, (_, index) =>
       message(`history${index}`, index),
     )
   }
   if (params.has('reminderWork')) return reminderWorkMessages()
-  if (params.has('thinkingWork')) return thinkingWorkMessages()
   if (params.has('compaction')) return compactionMessages()
   if (params.has('fileChanges')) return fileChangeMessages()
   if (params.has('shellReports')) return shellMessages()

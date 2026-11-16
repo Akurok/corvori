@@ -325,6 +325,8 @@ function getRowSpacing(row?: MessageRow, previousRow?: MessageRow) {
     (previousRow.kind === 'work' || previousRow.kind === 'footer')
   if (stacksWorkSummaries) return
 
+  if (previousRow.kind === 'header') return 'chat-message-header-gap'
+
   return 'h-(--message-block-gap)'
 }
 
