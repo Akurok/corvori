@@ -16,8 +16,8 @@ import {
 } from '../messageContents'
 import {
   finalizeMessageParts,
+  messagePreview,
   notACommandChip,
-  textFromParts,
 } from '../messages'
 import { portableContextExtra } from '../stream/contextNotes'
 import { getMember } from './memberships'
@@ -91,13 +91,12 @@ export async function importOne(
     importMessage(user._id, avatarIds, message),
   )
   const lastMessage = imported.at(-1)
-  const preview = lastMessage ? textFromParts(lastMessage.parts).trim() : ''
 
   const sessionId = await ctx.db.insert('sessions', {
     ownerId: user._id,
     title,
     lastMessageAt: now,
-    lastMessagePreview: preview ? preview.slice(0, 140) : undefined,
+    lastMessagePreview: lastMessage && messagePreview(lastMessage.parts),
   })
 
   await ctx.db.insert('userSessions', {

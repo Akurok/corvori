@@ -5,7 +5,7 @@ import type { Id } from '../../_generated/dataModel'
 import type { ActionCtx } from '../../_generated/server'
 import { getSubject } from '../../functions'
 import type { _getTitleContext } from '../../model/session/title'
-import { fallbackTitle, sanitizeTitle } from '../../model/session/title'
+import { sanitizeTitle } from '../../model/session/title'
 
 /** Regenerates a title without persisting it. */
 export async function regenerateTitle(
@@ -43,11 +43,9 @@ async function composeTitle(
   resolved: Awaited<ReturnType<typeof _getTitleContext>>,
   sessionId: Id<'sessions'>,
 ): Promise<string | undefined> {
-  if (!resolved?.exchange) return
-
-  const fallback = fallbackTitle(resolved.exchange)
-
-  if (!resolved.modelId) return fallback
+  if (!resolved) return
+  const fallback = resolved.fallback || undefined
+  if (!resolved.modelId || !resolved.exchange) return fallback
   if (!resolved.credentials?.providerId) {
     console.warn(
       `composeTitle: no provider configured for titleModel "${resolved.modelId}", using fallback title`,

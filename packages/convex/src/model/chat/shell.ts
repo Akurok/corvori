@@ -102,7 +102,7 @@ export async function runShellCommand(
   )
 
   // The preview reads from text parts, which a command message has none of
-  await syncActivity(ctx, session._id, [{ type: 'text', text: `$ ${command}` }])
+  await syncActivity(ctx, session._id, `$ ${command}`)
   if (sender.type === 'user') {
     await notifyUserMessage(ctx, {
       sessionId: session._id,

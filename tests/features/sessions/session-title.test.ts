@@ -9,6 +9,7 @@ import {
   _getRegenerateTitleContext,
   _getTitleContext,
   _patchTitle,
+  sanitizeTitle,
 } from '@cv/convex/model/session/title'
 import { DEFAULT_TITLE_SYSTEM_PROMPT } from '@cv/core/title-generation'
 import { expect, test } from 'bun:test'
@@ -85,8 +86,7 @@ test('without a title model, automatic titles use the first message', async () =
   const ctx = {
     auth,
     runQuery: async () => ({
-      exchange:
-        'User: Plan a weekend in Rome.\nAssistant: Here are some ideas.',
+      fallback: 'Plan a weekend in Rome',
       modelId: undefined,
       // Even stale credentials must not enable a provider call without a model.
       credentials: { providerId: 'unsupported-provider' },
@@ -253,6 +253,24 @@ test('without a model, the fallback reads only user segments', async () => {
 
   expect(await generateTitle(f.action, { sessionId })).toBe('Opening line')
   expect(f.segmentReads).toEqual(['user-0'])
+})
+
+test('fallback titles find prose beyond a leading code block and the model excerpt limit', async () => {
+  const f = titleFixture()
+  addMessage(f, 'user', [
+    [{ type: 'text', text: `\`\`\`ts\n${'code\n'.repeat(150)}\`\`\`` }],
+    [{ type: 'text', text: '## **Move** the `task` tool\n\nMore details' }],
+  ])
+
+  expect(await generateTitle(f.action, { sessionId })).toBe(
+    'Move the task tool',
+  )
+})
+
+test('generated titles remove Markdown', () => {
+  expect(
+    sanitizeTitle('# **Title: Weekend in [Rome](https://example.com)**'),
+  ).toBe('Weekend in Rome')
 })
 
 test('a blank exchange and a saved title both skip the automatic model request', async () => {

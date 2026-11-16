@@ -3,13 +3,17 @@ import {
   TITLE_EXCERPT_LENGTH,
   truncateTitleExcerpt,
 } from '@cv/core/title-generation'
+import {
+  limitPreview,
+  readMarkdownPreview,
+} from '@cv/core/utils/markdown-preview'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import { error } from '../../errors'
 import { findUserBySubject } from '../../functions'
 import { queryMessageSegments } from '../messageContents'
-import { hasSavedTitle, isTextPart, textFromParts } from '../messages'
+import { hasSavedTitle, isTextPart } from '../messages'
 import { findCredentialsForModel } from '../provider/providers'
 import { resolve as resolveProviders } from '../providers'
 import { getByOwnerId as getSettings } from '../settings'
@@ -49,7 +53,7 @@ async function readTitleContext(
 ) {
   const settings = await getSettings(ctx, session.ownerId)
   const modelId = settings?.titleModel
-  const exchange = await firstExchange(
+  const opening = await firstExchange(
     ctx,
     session._id,
     Boolean(modelId),
@@ -57,11 +61,11 @@ async function readTitleContext(
   )
 
   return {
-    exchange,
+    ...opening,
     modelId,
     systemPrompt: settings?.titleSystemPrompt ?? DEFAULT_TITLE_SYSTEM_PROMPT,
     credentials:
-      modelId && exchange
+      modelId && opening.exchange
         ? findCredentialsForModel(
             await resolveProviders(ctx, session.ownerId),
             modelId,
@@ -70,21 +74,38 @@ async function readTitleContext(
   }
 }
 
-/** Derives a fallback title from the first line of a message exchange. */
-export function fallbackTitle(text: string) {
-  const firstLine = text.split('\n')[0]?.replace(/^User:\s*/, '') ?? ''
-  return sanitizeTitle(firstLine)
+/** Derives a title from the first readable line of the opening message. */
+function fallbackTitle(parts: unknown[]) {
+  let codeTitle = ''
+  for (const part of parts) {
+    if (!isTextPart(part)) continue
+    const { prose, code } = openingTitles(part.text)
+    if (prose) return prose
+    codeTitle ||= code
+  }
+  return codeTitle
+}
+
+function openingTitles(text: string) {
+  const { prose, code } = readMarkdownPreview(text)
+  return {
+    prose: cleanTitle(prose.split('\n', 1)[0] ?? ''),
+    code: limitPreview(code.split('\n', 1)[0] ?? '', 100),
+  }
 }
 
 export function sanitizeTitle(raw: string) {
-  return raw
+  const { prose, code } = readMarkdownPreview(raw)
+  return cleanTitle(prose || code)
+}
+
+function cleanTitle(text: string) {
+  const cleaned = text
     .trim()
     .replace(/^["'`]+|["'`]+$/g, '')
     .replace(/^(title|chat|conversation)\s*[:-]\s*/i, '')
     .replace(/[.\s]+$/, '')
-    .replace(/\s+/g, ' ')
-    .slice(0, 100)
-    .trim()
+  return limitPreview(cleaned, 100)
 }
 
 /** Resolves a display title, falling back to the first user message. */
@@ -96,7 +117,7 @@ export function resolveTitle(
   if (trimmed) return trimmed
 
   const user = messages.find((message) => message.role === 'user')
-  const fallback = user ? fallbackTitle(textFromParts(user.parts)) : ''
+  const fallback = user ? fallbackTitle(user.parts) : ''
   return fallback || 'Untitled chat'
 }
 
@@ -113,11 +134,14 @@ async function firstExchange(
     .take(20)
 
   const user = messages.find((m) => m.role === 'user')
-  if (!user) return undefined
+  if (!user) return {}
 
-  const userText = await readExcerpt(ctx, user)
-  if (!includeAssistant)
-    return userText.trim() ? `User: ${userText}` : undefined
+  const { excerpt: userText, title: fallback } = await readOpening(
+    ctx,
+    user,
+    includeAssistant,
+  )
+  if (!includeAssistant) return { fallback }
 
   if (assistantText === undefined) {
     const assistant = messages.find(
@@ -128,14 +152,56 @@ async function firstExchange(
     assistantText = truncateTitleExcerpt(assistantText)
   }
 
-  if (!userText.trim() && !assistantText?.trim()) return undefined
+  if (!userText.trim() && !assistantText?.trim()) return { fallback }
 
   const userLine = `User: ${userText}`
-  return (
+  const exchange = (
     assistantText === undefined
       ? userLine
       : `${userLine}\nAssistant: ${assistantText}`
   ).trim()
+  return { fallback, exchange }
+}
+
+async function readOpening(
+  ctx: QueryCtx,
+  message: Doc<'messages'>,
+  includeExcerpt: boolean,
+) {
+  let excerpt = ''
+  let seenTextPart = false
+  let proseTitle = ''
+  let codeTitle = ''
+
+  for await (const segment of queryMessageSegments(
+    ctx,
+    message._id,
+    message.selectedVersion,
+  )) {
+    for (const part of segment.parts) {
+      if (!isTextPart(part)) continue
+      if (!proseTitle) {
+        const { prose, code } = openingTitles(part.text)
+        proseTitle = prose
+        codeTitle ||= code
+      }
+      if (includeExcerpt && excerpt.length < TITLE_EXCERPT_LENGTH) {
+        if (seenTextPart) excerpt += ' '
+        excerpt += part.text.slice(0, TITLE_EXCERPT_LENGTH - excerpt.length)
+        seenTextPart = true
+      }
+      if (
+        proseTitle &&
+        (!includeExcerpt || excerpt.length === TITLE_EXCERPT_LENGTH)
+      ) {
+        return { title: proseTitle, excerpt: truncateTitleExcerpt(excerpt) }
+      }
+    }
+  }
+  return {
+    title: proseTitle || codeTitle,
+    excerpt: truncateTitleExcerpt(excerpt),
+  }
 }
 
 /** Reads only the selected segments needed for the title prompt. */

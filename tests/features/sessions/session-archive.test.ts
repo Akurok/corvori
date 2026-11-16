@@ -105,7 +105,15 @@ describe('session archive import', () => {
       avatars: {},
       payload: archive([
         message(),
-        { role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+        {
+          role: 'user',
+          parts: [
+            {
+              type: 'text',
+              text: '```sh\nhello\n```\n\n**Hello** from `Rome`',
+            },
+          ],
+        },
       ]),
     })
     expect(tables.messages).toHaveLength(2)
@@ -113,6 +121,7 @@ describe('session archive import', () => {
     expect(tables.messages[0].senderName).toBe('Ada')
     expect(tables.messages[0].senderAvatarId).toBeUndefined()
     expect(tables.messages[1].senderName).toBeUndefined()
+    expect(tables.sessions[0].lastMessagePreview).toBe('Hello from Rome')
     expect(tables.messages[1].role).toBe('user')
   })
 

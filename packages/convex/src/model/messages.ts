@@ -1,5 +1,9 @@
 import { CONTEXT_NOTE_TYPES } from '@cv/core/context-notes'
 import { hasInterpolation } from '@cv/core/interpreter/parse'
+import {
+  limitPreview,
+  readMarkdownPreview,
+} from '@cv/core/utils/markdown-preview'
 import { settleUnansweredToolPart } from '@cv/core/utils/tool-parts'
 import type { UIMessage } from 'ai'
 import type { FilterBuilder, NamedTableInfo } from 'convex/server'
@@ -49,11 +53,13 @@ export function hasSavedTitle(session: Pick<Doc<'sessions'>, 'title'>) {
 export async function syncActivity(
   ctx: MutationCtx,
   sessionId: Id<'sessions'>,
-  parts: unknown[],
+  content: unknown[] | string,
 ) {
   const now = Date.now()
-  const text = textFromParts(parts).trim()
-  const preview = text ? text.slice(0, PREVIEW_LENGTH) : undefined
+  const preview =
+    typeof content === 'string'
+      ? limitPreview(content, PREVIEW_LENGTH) || undefined
+      : messagePreview(content)
 
   const session = await ctx.db.get(sessionId)
 
@@ -73,6 +79,21 @@ export async function syncActivity(
   for (const member of members) {
     await ctx.db.patch(member._id, { lastMessageAt: now })
   }
+}
+
+/** Builds a session preview from the visible text parts of a message. */
+export function messagePreview(parts: unknown[]) {
+  const text: string[] = []
+  let codeFallback = ''
+  for (const part of parts) {
+    if (!isTextPart(part)) continue
+    const { prose, code } = readMarkdownPreview(part.text)
+    codeFallback ||= code
+    if (prose) text.push(prose)
+  }
+  return (
+    limitPreview(text.join(' ') || codeFallback, PREVIEW_LENGTH) || undefined
+  )
 }
 
 export function textFromParts(parts: unknown[]) {
