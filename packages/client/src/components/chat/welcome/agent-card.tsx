@@ -35,6 +35,7 @@ export function WelcomeAgentCard({
   return (
     <Tooltip
       disabled={!overflow || disabled}
+      disableHoverablePopup={false}
       longPress={overflow && !disabled}
       longPressCloseDelay={10_000}
     >

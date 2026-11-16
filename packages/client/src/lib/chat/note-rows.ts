@@ -2,18 +2,23 @@ import type { RowTransition } from './row-expansion-state'
 import type { MessageRow } from './rows'
 
 /** Assigns chip placement and groups uninterrupted runs of hidden messages. */
-export function groupNoteRows(rows: MessageRow[]): MessageRow[] {
+export function groupNoteRows(
+  rows: MessageRow[],
+  isStandalone: (messageId: string) => boolean,
+): MessageRow[] {
   const result: MessageRow[] = []
   let index = 0
   while (index < rows.length) {
     const first = rows[index]
-    if (first.kind !== 'hidden') {
+    if (first.kind !== 'hidden' || isStandalone(first.messageId)) {
       result.push(first)
       index++
       continue
     }
     let end = index + 1
-    while (isGroupableNote(rows[end])) end++
+    while (rows[end]?.kind === 'hidden' && !isStandalone(rows[end].messageId)) {
+      end++
+    }
     const count = end - index
     if (count === 1) {
       const continuesSenderGroup = first.grouped && rows[end]?.grouped
@@ -39,10 +44,6 @@ export function groupNoteRows(rows: MessageRow[]): MessageRow[] {
     index = end
   }
   return result
-}
-
-function isGroupableNote(row: MessageRow | undefined) {
-  return row?.kind === 'hidden'
 }
 
 /** Hides collapsed groups' children while retaining individual message rows. */

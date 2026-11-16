@@ -36,7 +36,9 @@ function makeCtx({
       get: async (id: string) => docs.get(id) ?? null,
       insert: async (table: string, doc: Record<string, unknown>) => {
         inserts.push({ table, doc })
-        return `${table}_${inserts.length}`
+        const _id = `${table}_${inserts.length}`
+        docs.set(_id, { _id, _creationTime: inserts.length, ...doc })
+        return _id
       },
       patch: async (id: string, patch: Record<string, unknown>) => {
         patches.push({ id, patch })
@@ -253,6 +255,7 @@ describe('injectDueReminders todo nudge', () => {
 
     expect(patches).toEqual([
       { id: 'todo_1', patch: { stepCount: staleStepCount } },
+      { id: 'messages_1', patch: { position: expect.any(String) } },
     ])
   })
 

@@ -71,6 +71,7 @@ function message(time: number, segments = 1): WindowMessage {
   return {
     _id: `m${time}`,
     _creationTime: time,
+    position: String(time).padStart(2, '0'),
     sessionId: 'pagination',
     role: 'assistant',
     sender: { type: 'agent', id: `agent${time}` },
@@ -131,8 +132,17 @@ const source = messageWindowClient((args) => {
     }
   }
   if (long) {
+    const { anchor } = args
+    const anchorRow = history.find(
+      (row) =>
+        anchor &&
+        ('position' in anchor
+          ? row.position === anchor.position
+          : row._id === anchor.messageId),
+    )
     const end =
-      Number(args.anchor?.[1] ?? 13) - (args.anchorInclusive === false ? 1 : 0)
+      (anchorRow?._creationTime ?? 13) -
+      (args.anchorInclusive === false ? 1 : 0)
     const start = Math.max(0, end - count + 1)
     return {
       page: history.slice(start, end + 1),
@@ -363,7 +373,6 @@ function WindowFixture() {
     const anchor = () =>
       window.controls.anchorAround({
         _id: 'm1',
-        _creationTime: 1,
         segmentIndex: 4,
       })
     globalThis.addEventListener('anchor-pagination', anchor)

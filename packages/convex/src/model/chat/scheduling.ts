@@ -38,7 +38,7 @@ export async function timeout(
 
   const messageId = await insertCommandChip(
     ctx,
-    session,
+    sessionId,
     ctx.userId,
     { name: 'timeout', argument: duration.trim() },
     'queued',
@@ -72,7 +72,7 @@ export async function autoCompact(
     stream?.command.kind === 'invoke' ? stream._id : undefined
   const messageId = await insertCommandChip(
     ctx,
-    session,
+    sessionId,
     ctx.userId,
     { name: 'autoCompact' },
     'queued',

@@ -2,7 +2,6 @@ import {
   MESSAGE_WINDOW_BUDGET_BYTES,
   MESSAGE_WINDOW_MAX_ROWS,
 } from '@cv/core/const'
-import { orderContextNotes } from '@cv/core/context-notes'
 import type { UIMessage } from 'ai'
 import { dequal } from 'dequal'
 
@@ -36,7 +35,6 @@ export type MessageWindowMetadata = {
 
 export type WindowAnchor = {
   _id: string
-  _creationTime: number
   /** Anchors message at this segment. */
   segmentIndex?: number
 }
@@ -51,8 +49,9 @@ export type WindowControls = {
   anchorAround: (anchor: WindowAnchor) => void
 }
 
-/** The oldest loaded segment, in database order rather than display order. */
+/** The oldest loaded segment in transcript order. */
 export type WindowBoundary = WindowAnchor & {
+  position: string
   segmentIndex: number
   selectedVersion: number
   hasOlderSegments: boolean
@@ -95,8 +94,6 @@ export type MessageStore = ReturnType<typeof createMessageStore>
 
 export function createMessageStore() {
   let ids: string[] = []
-  // Retention follows database order even when notes display before their anchors
-  let retainedIds: string[] = []
   let messagesById = new Map<string, UIMessage>()
   let results: UIMessage[] = []
   let messageMetaByMessage = new Map<string, MessageRecord>()
@@ -138,7 +135,6 @@ export function createMessageStore() {
   const evict = (messageId: string) => {
     if (!messagesById.has(messageId)) return
     ids = ids.filter((id) => id !== messageId)
-    retainedIds = retainedIds.filter((id) => id !== messageId)
     messagesById = mapWithout(messagesById, messageId)
     results = results.filter((message) => message.id !== messageId)
     messageMetaByMessage = mapWithout(messageMetaByMessage, messageId)
@@ -162,7 +158,7 @@ export function createMessageStore() {
       ? limitRetained(
           mergeRetained(
             {
-              ids: retainedIds,
+              ids,
               messagesById,
               messageMetaByMessage,
               partMetaByMessage,
@@ -188,13 +184,8 @@ export function createMessageStore() {
       nextIds.push(message.id)
     }
 
-    retainedIds = nextIds
-
-    const displayIds = orderContextNotes(
-      nextIds.map((_id) => ({ ...merged.messageMetaByMessage.get(_id), _id })),
-    ).map((message) => message._id)
-    if (!arrayEqual(ids, displayIds)) {
-      ids = displayIds
+    if (!arrayEqual(ids, nextIds)) {
+      ids = nextIds
       changed = true
     }
 

@@ -30,9 +30,15 @@ export function mergeRetained(
   input: MergeInput,
 ): MergeInput {
   const incomingSet = new Set(input.results.map((message) => message.id))
-  const cut = prev.ids.findIndex((id) => incomingSet.has(id))
-  const boundaryId = cut === -1 ? null : prev.ids[cut]
-  const keptOlder = cut === -1 ? [] : prev.ids.slice(0, cut)
+  const boundaryId = input.results[0]?.id
+  const boundary = boundaryId && input.messageMetaByMessage.get(boundaryId)
+  if (!boundary || !prev.ids.some((id) => incomingSet.has(id))) return input
+
+  const keptOlder = prev.ids.filter((id) => {
+    if (incomingSet.has(id) || isOptimisticMessageId(id)) return false
+    const record = prev.messageMetaByMessage.get(id)
+    return record !== undefined && record.position < boundary.position
+  })
 
   const merged = boundaryId
     ? mergeBoundarySegments(prev, input, boundaryId)
@@ -45,7 +51,6 @@ export function mergeRetained(
   const partMetaByMessage = new Map(merged.partMetaByMessage)
 
   for (const id of keptOlder) {
-    if (isOptimisticMessageId(id)) continue
     const message = prev.messagesById.get(id)
     if (!message) continue
     results.push(message)

@@ -12,6 +12,7 @@ const message = (id: string): UIMessage => ({ id, role: 'user', parts: [] })
 const record = (id: string): MessageRecord =>
   ({
     sender: { type: 'user', id },
+    position: id,
     selectedVersion: 1,
     sizeBytes: 0,
     segments: [{ index: 0, partCount: 0, sizeBytes: 0 }],
@@ -72,6 +73,13 @@ describe('mergeRetained', () => {
     expect(idsOf(merged)).toEqual(['A', 'B', 'D', 'E'])
   })
 
+  test('moves a rekeyed note once and keeps earlier retained messages', () => {
+    const previous = retained(['A', 'B', 'C', 'D'])
+    const next = input(['C', 'D', 'B'])
+    next.messageMetaByMessage.get('B')!.position = 'E'
+    expect(idsOf(mergeRetained(previous, next))).toEqual(['A', 'C', 'D', 'B'])
+  })
+
   test('replaces when the page does not overlap the retained set', () => {
     const next = input(['X', 'Y', 'Z'])
     const merged = mergeRetained(retained(['A', 'B']), next)
@@ -105,6 +113,7 @@ describe('mergeRetained boundary segments', () => {
       } as UIMessage,
       record: {
         sender: { type: 'agent', id: 'agent_1' },
+        position: id,
         selectedVersion: 1,
         sizeBytes: slices.reduce(
           (sum, slice) => sum + slice.texts.join('').length,

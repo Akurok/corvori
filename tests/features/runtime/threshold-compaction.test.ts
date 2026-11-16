@@ -31,6 +31,7 @@ import type {
   StreamExecutionArgs,
   ThresholdCompactionArgs,
 } from '@cv/convex/types'
+import { messagePosition } from '@cv/core/message-position'
 import { modelReference } from '@cv/core/model-reference'
 import { tool } from 'ai'
 import { expect, mock, spyOn, test } from 'bun:test'
@@ -186,6 +187,9 @@ async function completeSummary(f: Fixture, execution: StreamExecutionArgs) {
 test('preempts normal dispatch, consumes the one-shot, and resumes with unread media and queued inputs', async () => {
   const f = await fixture({ withMedia: true })
   await autoCompact(f.ctx, { sessionId })
+  const queuedPosition = f
+    .rows('messages')
+    .find((row) => row.type === 'command')?.position
 
   const model = {
     doStream: mock(() => {
@@ -241,10 +245,12 @@ test('preempts normal dispatch, consumes the one-shot, and resumes with unread m
   })
   expect(f.rows('scheduledEvents')).toHaveLength(0)
   expect(f.rows('sessionState')[0]?.environment).toEqual({ prepared: true })
-  const oneShot = f
+  const [oneShot, ...extraChips] = f
     .rows('messages')
-    .find((message) => message.type === 'command')
+    .filter((message) => message.type === 'command')
   expect(oneShot?.extra).toMatchObject({ status: 'ran' })
+  expect(oneShot?.position).toBe(queuedPosition)
+  expect(extraChips).toHaveLength(0)
   expect(await _compactAtThreshold(f.ctx, f.threshold)).toBe(true)
   expect((await current(f)).execution).toEqual(compact.execution)
 
@@ -333,6 +339,9 @@ test('seals settled tool output into the summary and resumes without requiring n
   }
   await f.ctx.db.patch(claimed.state.processingContentId!, { parts: [pending] })
   expect(await _compactAtThreshold(f.ctx, f.threshold)).toBe(false)
+  const commandChips = () =>
+    f.rows('messages').filter((message) => message.type === 'command')
+  expect(commandChips()).toHaveLength(0)
   const settled = {
     ...pending,
     state: 'output-available',
@@ -341,7 +350,25 @@ test('seals settled tool output into the summary and resumes without requiring n
   }
   await f.ctx.db.patch(claimed.state.processingContentId!, { parts: [settled] })
   expect(await _compactAtThreshold(f.ctx, f.threshold)).toBe(true)
+  expect(await _compactAtThreshold(f.ctx, f.threshold)).toBe(true)
   const compact = await current(f)
+  const summaryPlaceholder = (await f.ctx.db.get(
+    compact.stream.state.processingMessageId!,
+  ))!
+  expect(commandChips()).toEqual([
+    expect.objectContaining({
+      hidden: true,
+      contextEligible: false,
+      extra: {
+        name: 'autoCompact',
+        source: 'contextWindow',
+        status: 'ran',
+      },
+    }),
+  ])
+  expect(String(commandChips()[0].position) < summaryPlaceholder.position).toBe(
+    true,
+  )
   expect(await f.ctx.db.get(claimed.state.processingMessageId)).toMatchObject({
     status: 'done',
   })
@@ -388,11 +415,45 @@ test.each(['failure', 'timeout'] as const)(
   'terminates on summary %s and leaves original context available',
   async (outcome) => {
     const f = await fixture()
-    await _claim(f.ctx, f.execution)
+    const original = (await _claim(f.ctx, f.execution))!
+    const anchor = (await f.ctx.db.get(original.state.processingMessageId!))!
+    const { messageId: noteId } = await insertMessage(
+      f.ctx,
+      {
+        sessionId,
+        sender: { type: 'agent', id: agentId },
+        role: 'system',
+        status: 'done',
+        type: 'skills',
+        hidden: true,
+        extra: { fingerprint: 'skills', anchorMessageId: anchor._id },
+      },
+      [{ type: 'text', text: 'Available skills' }],
+      { anchor, kind: 'contextNote' },
+    )
+    expect((await f.ctx.db.get(noteId))!.position < anchor.position).toBe(true)
     if (outcome === 'timeout')
       await timeout(f.ctx, { sessionId, duration: '0' })
     expect(await _compactAtThreshold(f.ctx, f.threshold)).toBe(true)
     const compact = await current(f)
+    expect(compact.stream.state.processingMessageId).toBe(anchor._id)
+    const note = (await f.ctx.db.get(noteId))!
+    expect(note.extra).toMatchObject({ anchorMessageId: undefined })
+    expect(note.position).toBe(messagePosition(note))
+    expect(f.rows('messages')).toContainEqual(
+      expect.objectContaining({
+        type: 'command',
+        extra: expect.objectContaining({
+          source: 'contextWindow',
+        }),
+      }),
+    )
+    const chip = f
+      .rows('messages')
+      .find(
+        (row) => (row.extra as { source?: string })?.source === 'contextWindow',
+      )!
+    expect(String(chip.position) < anchor.position).toBe(true)
     const summary = (await _claim(f.ctx, compact.execution))!
     await f.ctx.db.patch(summary.state.processingContentId!, {
       parts: [{ type: 'text', text: 'Partial summary' }],
@@ -422,6 +483,6 @@ test.each(['failure', 'timeout'] as const)(
     await _claim(f.ctx, execution)
     expect(
       (await _getProviderHistory(f.ctx, execution)).map((row) => row._id),
-    ).toEqual([f.prior!, f.input, nextInput])
+    ).toEqual([f.prior!, f.input, noteId, nextInput])
   },
 )

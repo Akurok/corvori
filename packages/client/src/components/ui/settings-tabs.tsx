@@ -135,7 +135,7 @@ function SettingsTabsTrigger({
         />
       )}
       className={cn(
-        'text-muted-foreground data-active:text-primary relative z-10 flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors',
+        'text-muted-foreground data-active:text-primary relative z-10 flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium',
         isMobile ? 'flex-1 justify-center' : 'w-full justify-start',
         className,
       )}

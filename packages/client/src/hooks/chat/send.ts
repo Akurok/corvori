@@ -327,6 +327,7 @@ function buildOptimisticMessage(
   return {
     _id: id,
     _creationTime: Date.now(),
+    position: `~${id}`,
     sessionId: args.sessionId,
     role,
     ...optimisticSender(role, profile, settings, agent, id),

@@ -18,7 +18,11 @@ export function skillsDatabase(indexes: Record<string, string[]> = {}) {
       [...tables.values()].flat().find((row) => row._id === id) ?? null,
     insert: async (table: string, fields: Record<string, unknown>) => {
       const id = `${table}_${++sequence}`
-      rows(table).push({ _id: id, ...fields })
+      rows(table).push({
+        _id: id,
+        ...(table === 'messages' && { _creationTime: 0 }),
+        ...fields,
+      })
       return id
     },
     patch: async (id: string, patch: Record<string, unknown>) => {
@@ -149,7 +153,11 @@ export function skillsDatabase(indexes: Record<string, string[]> = {}) {
           return query
         },
         withIndex: (name: string, select: (range: typeof index) => unknown) => {
-          indexFields = indexes[name] ?? indexFields
+          indexFields =
+            indexes[name] ??
+            (name === 'by_sessionId_position'
+              ? ['sessionId', 'position', '_creationTime', '_id']
+              : indexFields)
           select?.(index)
           return query
         },

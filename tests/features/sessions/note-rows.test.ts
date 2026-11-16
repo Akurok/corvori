@@ -21,7 +21,18 @@ function rowsFor(ids: string[], visible: string[] = [], groupBySender = true) {
     (id) =>
       ({
         hidden: !visible.includes(id),
-        type: visible.includes(id) ? undefined : types[ids.indexOf(id)],
+        type: visible.includes(id)
+          ? undefined
+          : id === 'compaction'
+            ? 'command'
+            : types[ids.indexOf(id)],
+        ...(id === 'compaction' && {
+          extra: {
+            name: 'autoCompact',
+            source: 'contextWindow',
+            status: 'ran',
+          },
+        }),
         sender: { type: 'agent', id: 'agent' },
       }) as MessageRecord,
     undefined,
@@ -57,6 +68,15 @@ describe('note rows', () => {
     expect(
       projectNoteRows(rows, new Set()).map((row) => row.messageId),
     ).toEqual(['a', 'visible', 'visible', 'c'])
+  })
+
+  test('keeps the automatic compaction chip visible beside collapsed notes', () => {
+    const rows = rowsFor(['a', 'b', 'compaction', 'c', 'd'])
+    expect(projectNoteRows(rows, new Set())).toMatchObject([
+      { kind: 'note-group', messageId: 'a', count: 2 },
+      { kind: 'hidden', messageId: 'compaction', placement: 'standalone' },
+      { kind: 'note-group', messageId: 'c', count: 2 },
+    ])
   })
 
   test('append and deletion update count and restore singleton presentation', () => {

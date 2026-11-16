@@ -2,6 +2,7 @@ import type { ScrollDeps } from '@/components/chat/messages/message-list/deps'
 import { openToolBlock } from '@/components/chat/messages/tools/tool-shell'
 import type { useMessageStore } from '@/hooks/chat'
 import { getNavPaddingPx } from '@/hooks/nav-padding'
+import type { WindowAnchor } from '@/lib/chat/message-store'
 import { revealNote } from '@/lib/chat/note-state'
 import { type MessageRow, findToolRow } from '@/lib/chat/rows'
 import {
@@ -14,14 +15,8 @@ import type { ScrollOperation } from '@/lib/scroll-coordinator'
 import { trackUntilSettled } from '@/lib/scroll-settle'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-type AnchorAround = (target: {
-  _id: string
-  _creationTime: number
-  segmentIndex?: number
-}) => void
-
 type SeekOptions = {
-  anchorAround: AnchorAround
+  anchorAround: (target: WindowAnchor) => void
   rows: MessageRow[]
   messageStore: ReturnType<typeof useMessageStore>
 }
@@ -372,7 +367,6 @@ export function useSeek(
       notFoundTimerRef.current = setTimeout(abandonTarget, NOT_FOUND_TIMEOUT_MS)
       anchorAround({
         _id: target.id,
-        _creationTime: target.creationTime,
         segmentIndex: target.segmentIndex,
       })
       return

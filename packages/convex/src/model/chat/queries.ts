@@ -118,7 +118,14 @@ export async function messagesWindow(
     return { page: [], hasOlder: false, hasNewer: false, atTail: true }
   }
 
+  const position = await resolveWindowPosition(ctx, sessionId, anchor)
+  if (anchor && position === undefined) {
+    return { page: [], hasOlder: false, hasNewer: false, atTail: false }
+  }
+
   const sessionPrefix: IndexKey = [sessionId]
+  const boundary: IndexKey | undefined =
+    position === undefined ? undefined : [sessionId, position]
   const rowCap = Math.min(limit, MESSAGE_WINDOW_MAX_ROWS)
   const budget =
     budgetBytes === undefined
@@ -128,10 +135,10 @@ export async function messagesWindow(
   if (direction === 'older') {
     const result = await getPage(ctx, {
       table: 'messages',
-      index: 'by_sessionId',
+      index: 'by_sessionId_position',
       schema,
       order: 'desc',
-      startIndexKey: anchor ?? sessionPrefix,
+      startIndexKey: boundary ?? sessionPrefix,
       startInclusive: anchorInclusive,
       endIndexKey: sessionPrefix,
       endInclusive: true,
@@ -150,11 +157,11 @@ export async function messagesWindow(
     )
     const page = messages.reverse()
     const hasNewer =
-      (anchor
+      (boundary
         ? await messagesExistBeyond(
             ctx,
             sessionPrefix,
-            anchor,
+            boundary,
             'newer',
             !anchorInclusive,
           )
@@ -172,10 +179,10 @@ export async function messagesWindow(
 
   const result = await getPage(ctx, {
     table: 'messages',
-    index: 'by_sessionId',
+    index: 'by_sessionId_position',
     schema,
     order: 'asc',
-    startIndexKey: anchor ?? sessionPrefix,
+    startIndexKey: boundary ?? sessionPrefix,
     startInclusive: anchorInclusive,
     endIndexKey: sessionPrefix,
     endInclusive: true,
@@ -191,11 +198,11 @@ export async function messagesWindow(
     },
   )
   const hasOlder =
-    (anchor
+    (boundary
       ? await messagesExistBeyond(
           ctx,
           sessionPrefix,
-          anchor,
+          boundary,
           'older',
           !anchorInclusive,
         )
@@ -210,6 +217,18 @@ export async function messagesWindow(
     hasNewer,
     atTail: !hasNewer,
   }
+}
+
+async function resolveWindowPosition(
+  ctx: AuthQueryCtx,
+  sessionId: Id<'sessions'>,
+  anchor: MessageWindowArgs['anchor'],
+) {
+  if (!anchor) return undefined
+  if ('position' in anchor) return anchor.position
+
+  const message = await ctx.db.get(anchor.messageId)
+  return message?.sessionId === sessionId ? message.position : undefined
 }
 
 type SegmentJoinOptions = {
@@ -379,7 +398,7 @@ async function messagesExistBeyond(
 ): Promise<boolean> {
   const result = await getPage(ctx, {
     table: 'messages',
-    index: 'by_sessionId',
+    index: 'by_sessionId_position',
     schema,
     order: direction === 'older' ? 'desc' : 'asc',
     startIndexKey: key,

@@ -49,14 +49,15 @@
 }
 
 .ProseMirror ul {
-  @apply mt-2 ml-6 list-disc;
+  @apply ml-6 list-disc;
 }
 
 .ProseMirror ol {
-  @apply mt-2 ml-6 list-decimal;
+  @apply ml-6 list-decimal;
 }
 
-.ProseMirror li {
+.ProseMirror li + li,
+.ProseMirror li > :is(ul, ol) {
   @apply mt-2;
 }
 

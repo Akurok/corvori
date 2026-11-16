@@ -1,10 +1,55 @@
-import { expect, test } from '@playwright/test'
+import { type Locator, expect, test } from '@playwright/test'
+
+async function expectHoverToClear(tab: Locator, other: Locator) {
+  const restingColor = await tab.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  )
+  await tab.hover()
+  await expect(tab).not.toHaveCSS('background-color', restingColor)
+  await tab.evaluate((element) => {
+    element.addEventListener(
+      'pointerleave',
+      () => {
+        requestAnimationFrame(() => {
+          element.setAttribute(
+            'data-exit-background',
+            getComputedStyle(element).backgroundColor,
+          )
+        })
+      },
+      { once: true },
+    )
+  })
+  await other.hover()
+  await expect(tab).toHaveAttribute('data-exit-background', restingColor)
+}
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/?fixture=ui-layout')
 })
 
+test('settings tabs clear their hover highlight on pointer exit', async ({
+  page,
+}) => {
+  await page.goto('/?fixture=account-security')
+  await expectHoverToClear(
+    page.getByRole('tab', { name: 'Tools' }),
+    page.getByRole('tab', { name: 'Account' }),
+  )
+})
+
 for (const variant of ['hug', 'pill']) {
+  test(`subtabs clear their hover highlight on pointer exit (${variant})`, async ({
+    page,
+  }) => {
+    await page.goto(`/?fixture=ui-layout&variant=${variant}`)
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await expectHoverToClear(
+      page.getByRole('tab', { name: 'MCP' }),
+      page.getByRole('tab', { name: 'Tools' }),
+    )
+  })
+
   test(`sub-tab indicator is visible on opening settings and follows selection (${variant})`, async ({
     page,
   }) => {

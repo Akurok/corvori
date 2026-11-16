@@ -61,7 +61,7 @@ export function useDeleteMessagesFrom() {
         continue
       }
       const page = query.value.page.filter(
-        (message) => message._creationTime < anchor._creationTime,
+        (message) => message.position < anchor.position,
       )
       if (page.length === query.value.page.length) continue
       store.setQuery(api.chat.messagesWindow, query.args, {

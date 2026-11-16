@@ -102,7 +102,7 @@ async function invokeCommand(
   const messageId = needsCommandChip(command.name, defer)
     ? await insertCommandChip(
         ctx,
-        session,
+        sessionId,
         ctx.userId,
         command,
         defer ? 'queued' : 'ran',

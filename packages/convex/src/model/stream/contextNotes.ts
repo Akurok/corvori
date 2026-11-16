@@ -133,6 +133,9 @@ async function insertContextNote(
   const anchor = await ctx.db.get(stream.state.processingMessageId)
   const anchorPartCount = anchor ? (await withParts(ctx, anchor)).parts.length : 0 // prettier-ignore
 
+  const placement = anchor
+    ? { anchor, kind: 'contextNote' as const }
+    : undefined
   const { messageId } = await insertMessage(
     ctx,
     {
@@ -156,6 +159,7 @@ async function insertContextNote(
       },
     },
     [{ type: 'text', text: args.content }],
+    placement,
   )
 
   return messageId

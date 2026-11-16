@@ -30,6 +30,7 @@ import {
   HourglassIcon,
   ListTodoIcon,
   MessagesSquareIcon,
+  ShrinkIcon,
   TerminalIcon,
   Trash2Icon,
   TriangleAlertIcon,
@@ -102,6 +103,11 @@ function chipPresentation(record: MessageRecord | undefined): ChipPresentation {
 function commandPresentation(
   command: MessageExtra['command'] | undefined,
 ): ChipPresentation {
+  if (command?.source === 'contextWindow') {
+    const label = 'Automatic compaction'
+    return { icon: ShrinkIcon, label, noun: 'note', copyText: label }
+  }
+
   const invocation = command
     ? `/${command.name}${command.argument ? ` ${command.argument}` : ''}`
     : 'Command'

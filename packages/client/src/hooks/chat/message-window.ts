@@ -7,6 +7,7 @@ import type {
 } from '@/lib/chat/message-store'
 import {
   appendMessageUploads,
+  isOptimisticMessageId,
   useMessageUploads,
 } from '@/lib/chat/message-uploads'
 import {
@@ -23,11 +24,14 @@ import {
   MESSAGE_WINDOW_MAX_ROWS,
 } from '@cv/core/const'
 import { useQuery } from 'convex/react'
-import type { FunctionReturnType } from 'convex/server'
+import type { FunctionArgs, FunctionReturnType } from 'convex/server'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type WindowResult = FunctionReturnType<typeof api.chat.messagesWindow>
-type AnchorKey = (string | number)[]
+
+type WindowCursor = NonNullable<
+  FunctionArgs<typeof api.chat.messagesWindow>['anchor']
+>
 
 type WindowState =
   | {
@@ -41,14 +45,14 @@ type WindowState =
     }
   | {
       kind: 'older'
-      anchor: AnchorKey
+      anchor: WindowCursor
       anchorSegment?: number
       anchorInclusive?: boolean
       session: Id<'sessions'> | null
     }
   | {
       kind: 'newer'
-      anchor: AnchorKey
+      anchor: WindowCursor
       anchorSegment?: number
       session: Id<'sessions'> | null
       viaSeek: boolean
@@ -206,12 +210,6 @@ export function useMessageWindow(
     }))
   }, [state.kind, args, result, loading, pageRevision, messages, data])
 
-  const keyOf = useCallback(
-    (msg: WindowAnchor): AnchorKey | null =>
-      sessionId ? [sessionId, msg._creationTime, msg._id] : null,
-    [sessionId],
-  )
-
   // Load older messages while dropping the newest page.
   // Returns true if the window swapped its content.
   const extendOlder = useCallback(
@@ -235,13 +233,13 @@ export function useMessageWindow(
         MESSAGE_PAGE_BUDGET_BYTES,
         MESSAGE_WINDOW_BUDGET_BYTES,
       )
-      const anchor = keyOf(before ?? windowMessages[target.index])
-      if (!anchor) return false
+      const edge = before ?? windowMessages[target.index]
+      if (isOptimisticMessageId(edge._id)) return false
 
       startLoading('older', true)
       setState({
         kind: 'older',
-        anchor,
+        anchor: { position: edge.position },
         anchorSegment: before
           ? before.hasOlderSegments
             ? before.segmentIndex - 1
@@ -252,7 +250,7 @@ export function useMessageWindow(
       })
       return true
     },
-    [sessionId, state, windowMessages, keyOf, loading, startLoading],
+    [sessionId, state, windowMessages, loading, startLoading],
   )
 
   // Load newer messages while dropping the oldest page
@@ -260,19 +258,19 @@ export function useMessageWindow(
     if (!sessionId || windowMessages.length === 0) return false
 
     const target = anchorFromStart(windowMessages, MESSAGE_PAGE_BUDGET_BYTES)
-    const anchor = keyOf(windowMessages[target.index])
-    if (!anchor) return false
+    const edge = windowMessages[target.index]
+    if (isOptimisticMessageId(edge._id)) return false
 
     startLoading('newer', true)
     setState({
       kind: 'newer',
-      anchor,
+      anchor: { position: edge.position },
       anchorSegment: target.segmentIndex,
       session: sessionId,
       viaSeek: false,
     })
     return true
-  }, [sessionId, windowMessages, keyOf, startLoading])
+  }, [sessionId, windowMessages, startLoading])
 
   const returnToLatest = useCallback(() => {
     if (!sessionId) return
@@ -295,20 +293,18 @@ export function useMessageWindow(
   // Show the target at the top with the conversation continuing below it
   const anchorAround = useCallback(
     (anchorMsg: WindowAnchor) => {
-      if (!sessionId) return
-      const anchor = keyOf(anchorMsg)
-      if (!anchor) return
+      if (!sessionId || isOptimisticMessageId(anchorMsg._id)) return
       setLoading(null)
       setResetKey((key) => key + 1)
       setState({
         kind: 'newer',
-        anchor,
+        anchor: { messageId: anchorMsg._id as Id<'messages'> },
         anchorSegment: anchorMsg.segmentIndex,
         session: sessionId,
         viaSeek: true,
       })
     },
-    [sessionId, keyOf],
+    [sessionId],
   )
 
   const controls = useMemo<WindowControls>(

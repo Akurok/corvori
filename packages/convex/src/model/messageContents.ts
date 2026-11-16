@@ -1,4 +1,8 @@
 import { MESSAGE_SPLIT_BUDGET_BYTES } from '@cv/core/const'
+import {
+  type MessagePlacement,
+  messagePosition,
+} from '@cv/core/message-position'
 import { splitParts } from '@cv/core/utils/size'
 
 import type { Doc, Id } from '../_generated/dataModel'
@@ -173,18 +177,26 @@ export async function insertMessage(
   ctx: MutationCtx,
   fields: InsertMessageFields,
   parts: unknown[],
+  placement?: MessagePlacement,
 ) {
   assertPartsCap(parts)
   const segments = splitParts(parts, MESSAGE_SPLIT_BUDGET_BYTES)
 
+  // Convex assigns both inputs to the position key on insert, in this transaction.
   const messageId = await ctx.db.insert('messages', {
     ...fields,
+    position: '',
     selectedVersion: 1,
     versionCount: 1,
     ...(fields.status === 'processing' && {
       activeSegmentIndex: segments.length - 1,
     }),
     contextEligible: isContextEligible(parts),
+  })
+  const message = await ctx.db.get(messageId)
+  if (!message) error('Message missing after insertion', 500)
+  await ctx.db.patch(messageId, {
+    position: messagePosition(message, placement),
   })
 
   let contentId = await insertSegment(ctx, messageId, fields, segments[0], 0)

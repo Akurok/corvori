@@ -57,7 +57,9 @@ function makeCtx({
       insert: async (table: string, doc: Record<string, unknown>) => {
         if (table === 'sessionState') return state.insert(doc)
         inserts.push({ table, doc })
-        return `${table}_${inserts.length}`
+        const _id = `${table}_${inserts.length}`
+        docs.set(_id, { _id, _creationTime: inserts.length, ...doc })
+        return _id
       },
       patch: async (id: string, patch: Record<string, unknown>) => {
         if (state.owns(id)) return void state.patch(patch)
