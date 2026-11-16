@@ -25,14 +25,14 @@ export const TOOL_CAPABILITIES = [
     name: 'task',
     label: 'Delegate tasks',
     description: 'Delegate work to subagents.',
-    category: 'general',
+    category: 'collaboration',
     tools: ['task'],
   },
   {
     name: 'yield',
     label: 'Hand off turns',
     description: 'Let another agent respond next.',
-    category: 'general',
+    category: 'collaboration',
     tools: ['yield'],
   },
   {

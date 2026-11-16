@@ -1,4 +1,4 @@
-import { SearchInput, SettingsList } from '@/components/ui'
+import { AlertMessage, SearchInput, SettingsList } from '@/components/ui'
 import { useOwnedAgents } from '@/hooks/chat'
 import type { Id } from '@cv/convex/_generated/dataModel'
 import { useState } from 'react'
@@ -11,8 +11,10 @@ import { SubagentModelPopover } from './subagent-model-popover'
 
 export function SubagentSettings({
   control,
+  taskEnabled,
 }: {
   control: Control<AgentFormValues>
+  taskEnabled: boolean
 }) {
   const agents = useOwnedAgents() ?? []
   const [search, setSearch] = useState('')
@@ -54,6 +56,16 @@ export function SubagentSettings({
 
   return (
     <SettingsList>
+      {!taskEnabled && (
+        <AlertMessage
+          className="mx-4 mt-4"
+          variant="warning"
+          dismissible={false}
+        >
+          Sub-agents are currently off for this agent. Enable Delegate tasks
+          in the Tools tab.
+        </AlertMessage>
+      )}
       <div className="px-4 py-3">
         <SearchInput
           aria-label="Search agents"

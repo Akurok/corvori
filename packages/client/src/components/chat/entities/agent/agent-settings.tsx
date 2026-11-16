@@ -180,6 +180,7 @@ function AgentSettingsDialog() {
   const editingAgent = useStableValue(liveAgent, loading)
   const skillAccessEnabled = editingAgent?.tools?.includes('skills') ?? false
   const mcpAccessEnabled = editingAgent?.tools?.includes('mcp_access') ?? false
+  const taskEnabled = editingAgent?.tools?.includes('task') ?? false
 
   useEffect(() => {
     if (!open || loading) return
@@ -371,7 +372,10 @@ function AgentSettingsDialog() {
                 </SettingsTabs.Content>
 
                 <SettingsTabs.Content value="subagents">
-                  <SubagentSettings control={form.control} />
+                  <SubagentSettings
+                    control={form.control}
+                    taskEnabled={taskEnabled}
+                  />
                 </SettingsTabs.Content>
 
                 <SettingsTabs.Content value="behavior">

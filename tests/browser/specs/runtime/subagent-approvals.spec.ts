@@ -7,7 +7,8 @@ const composer = (page: Page) =>
   page.locator('[data-slot="chat-box"] [contenteditable="true"]')
 const review = (page: Page) =>
   page.getByRole('button', { name: 'Review approval', exact: true })
-const actions = (page: Page) => picker(page).locator('[data-slot="command"]')
+const actions = (page: Page) =>
+  picker(page).getByRole('group', { name: 'Approval actions' })
 
 async function releaseApprovals(page: Page) {
   await page.evaluate(() =>
@@ -110,6 +111,7 @@ test('opens approval when the empty composer is focused', async ({ page }) => {
 
   await releaseApprovals(page)
   await expect(picker(page)).toBeVisible()
+  await expect(actions(page)).toBeFocused()
   await expect(review(page)).toHaveCount(0)
 })
 
@@ -157,7 +159,7 @@ test('keeps an automatic approval stable while work expands and collapses', asyn
   await expect(picker(page)).toBeVisible()
 })
 
-test('preserves child note drafts when moving between views', async ({
+test('restores note drafts and approval navigation when moving between views', async ({
   page,
 }) => {
   await page.goto('/?fixture=subagent-approvals&id=child')
@@ -166,6 +168,23 @@ test('preserves child note drafts when moving between views', async ({
   await expect(note(page)).toHaveText('Shared child note')
   await page.getByRole('button', { name: 'View child', exact: true }).click()
   await expect(note(page)).toHaveText('Shared child note')
+  await expect(actions(page)).toBeFocused()
+
+  const deny = picker(page).getByRole('option', { name: /^Deny/ })
+  const abort = picker(page).getByRole('option', { name: /^Abort/ })
+  await deny.hover()
+  await expect(deny).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowDown')
+  await expect(abort).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowUp')
+  await expect(deny).toHaveAttribute('aria-selected', 'true')
+
+  await page.keyboard.press('Tab')
+  await expect(note(page)).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(actions(page)).toBeFocused()
+  await expect(deny).toHaveAttribute('aria-selected', 'true')
+  expect(await mutations(page)).toEqual([])
 })
 
 test('remembers a local approval through the shared parent policy', async ({
@@ -350,6 +369,7 @@ test('keeps typing and sends chat messages independently of the current approval
     isComposing: true,
   })
   expect(await mutations(page)).toHaveLength(1)
+  await expect(note(page)).toBeFocused()
   await picker(page).getByRole('option', { name: /^Deny/ }).hover()
   await note(page).press('ControlOrMeta+Enter')
   await expect

@@ -27,11 +27,14 @@ export function useApprovalInteraction({
   }, [restoreFocusRef])
 
   useLayoutEffect(() => {
-    if (!focusOnOpen) return
-
-    const frame = requestAnimationFrame(() =>
-      actionsRef.current?.focus({ preventScroll: true }),
-    )
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement
+      const focusUnclaimed =
+        active === document.body || active?.closest('[inert]')
+      if (focusOnOpen || focusUnclaimed) {
+        actionsRef.current?.focus({ preventScroll: true })
+      }
+    })
     return () => cancelAnimationFrame(frame)
   }, [focusOnOpen])
 
@@ -64,7 +67,10 @@ export function useApprovalInteraction({
       return
     }
 
-    if (event.key === 'Escape') {
+    if (event.key === 'Tab') {
+      // Skip editor indentation while preserving native focus traversal.
+      event.stopPropagation()
+    } else if (event.key === 'Escape') {
       event.preventDefault()
       event.stopPropagation()
       actionsRef.current?.focus({ preventScroll: true })

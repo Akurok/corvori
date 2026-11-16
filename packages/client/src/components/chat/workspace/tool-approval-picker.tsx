@@ -8,7 +8,7 @@ import { type api } from '@cv/convex/_generated/api'
 import { HOLD_HINTS } from '@cv/convex/lib/tool/approvalPolicy'
 import { summarizeInput, toolDisplayName } from '@cv/core/approval-presentation'
 import type { FunctionReturnType } from 'convex/server'
-import { type RefObject, Suspense, lazy } from 'react'
+import { type RefObject, Suspense, lazy, useRef } from 'react'
 
 import { Button, Code, T } from '../../ui'
 import { Command } from '../../ui/command'
@@ -33,6 +33,7 @@ export function ToolApprovalPicker({
   childApproval,
 }: ToolApprovalPickerProps) {
   const { part } = request
+  const noteRef = useRef<HTMLDivElement>(null)
 
   const {
     planApproval,
@@ -124,13 +125,21 @@ export function ToolApprovalPicker({
           tabIndex={0}
           role="group"
           aria-label="Approval actions"
-          disablePointerSelection
           loop
           shouldFilter={false}
           value={selectedAction}
           onValueChange={setSelectedAction}
           onKeyDownCapture={handleActionKey}
-          className="focus-visible:ring-ring focus-visible:ring-1"
+          onPointerMoveCapture={(event) => {
+            // Keep the keyboard choice stable while the note is focused.
+            const noteFocused = noteRef.current?.contains(
+              document.activeElement,
+            )
+            if (noteFocused || event.pointerType === 'touch') {
+              event.stopPropagation()
+            }
+          }}
+          className="focus-within:ring-ring focus-within:ring-1"
         >
           <Command.CommandList>
             {actions.map((action) => (
@@ -138,7 +147,7 @@ export function ToolApprovalPicker({
                 key={action.id}
                 value={action.id}
                 onSelect={() => selectAction(action)}
-                className="flex items-center gap-2 rounded-lg px-3 py-2.5"
+                className="data-[selected=false]:hover:bg-m3-surface-container flex items-center gap-2 rounded-lg px-3 py-2.5"
               >
                 <span className="min-w-0 flex-1 truncate text-sm font-medium whitespace-nowrap">
                   {action.label}
@@ -155,6 +164,7 @@ export function ToolApprovalPicker({
         </Command>
         <div
           data-slot="approval-note"
+          ref={noteRef}
           onKeyDownCapture={handleNoteKey}
           className="bg-background/60 max-h-32 overflow-y-auto rounded-lg border px-3 py-1.5"
           style={{
