@@ -77,6 +77,7 @@ export type MessageRecord = Pick<
   | 'versionCount'
   | 'hasChanges'
   | '_creationTime'
+  | 'position'
 > & {
   metadata?: Pick<MessageMetadata, 'error' | 'warnings' | 'usage'>
   /** Sum of the loaded segments' serialized sizes. */

@@ -1,5 +1,3 @@
-import { orderContextNotes } from '@cv/core/context-notes'
-
 import type { Id } from '../../_generated/dataModel'
 import { error } from '../../errors'
 import { type AuthMutationCtx } from '../../functions'
@@ -106,14 +104,12 @@ export async function duplicate(
 
   const messages = await ctx.db
     .query('messages')
-    .withIndex('by_sessionId', (q) => q.eq('sessionId', sessionId))
+    .withIndex('by_sessionId_position', (q) => q.eq('sessionId', sessionId))
     .filter(notACommandChip)
     .order('asc')
     .collect()
 
-  const copied = orderContextNotes(
-    messages.filter((message) => message.status !== 'processing'),
-  )
+  const copied = messages.filter((message) => message.status !== 'processing')
   const partsByMessage = new Map<Id<'messages'>, unknown[]>()
   const referencedAttachmentIds = new Set<string>()
   for (const message of copied) {

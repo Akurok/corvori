@@ -269,11 +269,19 @@ describe('insertMessage', () => {
     }
     let nextId = 1
 
+    const get = (id: string) =>
+      Object.values(tables)
+        .flat()
+        .find((row) => row._id === id)
     const ctx = {
       db: {
+        get: async (id: string) => get(id),
+        patch: async (id: string, patch: Record<string, unknown>) => {
+          Object.assign(get(id)!, patch)
+        },
         insert: async (table: string, doc: Record<string, unknown>) => {
           const _id = `${table}_${nextId++}`
-          tables[table].push({ _id, ...doc })
+          tables[table].push({ _id, _creationTime: nextId, ...doc })
           return _id
         },
       },

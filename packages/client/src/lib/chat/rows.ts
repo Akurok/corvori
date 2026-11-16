@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai'
 import { dequal } from 'dequal'
 
+import { messageExtra } from './messages'
 import { groupNoteRows } from './note-rows'
 import {
   type PartGroup,
@@ -280,6 +281,9 @@ export function buildRows(
       groupBySender,
       resolveWorkId,
     }),
+    (id) =>
+      messageExtra(getMessageMetadata(id), 'command')?.source ===
+      'contextWindow',
   )
 }
 

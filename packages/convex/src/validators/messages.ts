@@ -159,11 +159,12 @@ export const sendMessageArgsValidator = v.object({
 
 export const messagesWindowArgsValidator = v.object({
   sessionId: v.id('sessions'),
-  /**
-   * A `by_sessionId` index key (sessionId, _creationTime, _id).
-   * When null, it anchors at the newest message (see `WindowAnchor` for the type).
-   */
-  anchor: v.union(v.array(v.union(v.string(), v.number())), v.null()),
+  /** A page boundary, a message to locate, or the session edge. */
+  anchor: v.union(
+    v.object({ position: v.string() }),
+    v.object({ messageId: v.id('messages') }),
+    v.null(),
+  ),
   /** Includes the anchor message by default; false starts strictly beyond it. */
   anchorInclusive: v.optional(v.boolean()),
   direction: v.union(v.literal('older'), v.literal('newer')),
@@ -224,6 +225,8 @@ export const answerQuestionsArgsValidator = v.object({
 /** A session message and metadata for its selected content version. */
 export const messageSchema = v.object({
   sessionId: v.id('sessions'),
+  /** Sortable key for this message's place in the session transcript. */
+  position: v.string(),
   sender: senderValidator,
   role: roleValidator,
   ...senderIdentityFields,

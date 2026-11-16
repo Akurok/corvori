@@ -159,6 +159,7 @@ export default defineSchema({
   messages: defineTable(V.messageSchema)
     .index('by_sessionId_contextAnchor', ['sessionId', 'extra.anchorMessageId'])
     .index('by_sessionId', ['sessionId'])
+    .index('by_sessionId_position', ['sessionId', 'position'])
     .index('by_sessionId_senderType', ['sessionId', 'sender.type'])
     .index('by_sessionId_sender', ['sessionId', 'sender.type', 'sender.id'])
     .index('by_sessionId_status_contextEligible', ['sessionId', 'status', 'contextEligible'])

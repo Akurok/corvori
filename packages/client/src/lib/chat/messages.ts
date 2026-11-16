@@ -63,6 +63,7 @@ function convertDoc(doc: MessageDoc): ConvertedEntry {
     message: doc.status === 'done' ? finalizeMessageParts(message) : message,
     record: {
       _creationTime: doc._creationTime,
+      position: doc.position,
       sender: doc.sender,
       senderName: doc.senderName,
       hasChanges: doc.hasChanges,

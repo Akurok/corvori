@@ -15,6 +15,10 @@ export function HiddenNoteContent({ message, record }: HiddenNoteContentProps) {
   const text = extractTextFromMessage(message)
   const command = messageExtra(record, 'command')
 
+  if (command?.source === 'contextWindow') {
+    return <p>The estimated input reached the model’s compaction threshold.</p>
+  }
+
   if (command && !text.trim()) {
     return (
       <div className="space-y-2 wrap-anywhere whitespace-pre-wrap">

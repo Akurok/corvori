@@ -14,7 +14,15 @@ export function clampedWindow(message: MessageFactory, full = false) {
   )
   return (args: MessageWindowArgs) => {
     const forward = args.direction === 'newer'
-    const anchor = Number(args.anchor?.[1] ?? (forward ? 0 : 21))
+    const cursor = args.anchor
+    const anchorRow = history.find(
+      (row) =>
+        cursor &&
+        ('position' in cursor
+          ? row.position === cursor.position
+          : row._id === cursor.messageId),
+    )
+    const anchor = anchorRow?._creationTime ?? (forward ? 0 : 21)
     const candidates = segments.filter(({ row, segment }) => {
       if (row._creationTime !== anchor) {
         return forward ? row._creationTime > anchor : row._creationTime < anchor

@@ -1,4 +1,5 @@
 import type { MessageStore, WindowBoundary } from './message-store'
+import { isOptimisticMessageId } from './message-uploads'
 import { isRenderablePartGroup } from './parts'
 import { type MessageRow, segmentGroupsFor } from './rows'
 import type { MessageRecord } from './types'
@@ -6,27 +7,25 @@ import type { MessageRecord } from './types'
 type MessageReader = Pick<MessageStore, 'getMessage' | 'getMessageMetadata'>
 type GroupRow = Extract<MessageRow, { kind: 'group' }>
 
-/** Compares database positions, including segments within the same message. */
+/** Compares transcript positions, including segments within the same message. */
 export function compareBoundaries(
   a: WindowBoundary,
   b: WindowBoundary,
 ): number {
-  if (a._creationTime !== b._creationTime) {
-    return a._creationTime - b._creationTime
-  }
-  if (a._id !== b._id) return a._id < b._id ? -1 : 1
+  if (a.position !== b.position) return a.position < b.position ? -1 : 1
   return a.segmentIndex - b.segmentIndex
 }
 
-/** Finds the chronological edge even when notes have been reordered for display. */
+/** Finds the transcript edge even when work grouping moves individual rows. */
 export function oldestLoadedBoundary(
   records: ReadonlyMap<string, MessageRecord>,
 ): WindowBoundary | null {
   let oldest: WindowBoundary | null = null
   for (const [_id, record] of records) {
+    if (isOptimisticMessageId(_id)) continue
     const boundary = {
       _id,
-      _creationTime: record._creationTime,
+      position: record.position,
       segmentIndex: record.segments[0]?.index ?? 0,
       selectedVersion: record.selectedVersion,
       hasOlderSegments: record.hasOlderSegments,
@@ -86,7 +85,7 @@ function rowPrecedesBoundary(
 ): boolean {
   const position = {
     _id: row.messageId,
-    _creationTime: record._creationTime,
+    position: record.position,
     segmentIndex: row.kind === 'group' ? row.segmentIndex : 0,
     selectedVersion: record.selectedVersion,
     hasOlderSegments: record.hasOlderSegments,

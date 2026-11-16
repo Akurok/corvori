@@ -1,9 +1,11 @@
+import { messagePosition } from '@cv/core/message-position'
 import { hasPendingQuestions } from '@cv/core/utils/ask'
 import { hasPendingToolApprovals } from '@cv/core/utils/tool-parts'
 import { hasPendingYield } from '@cv/core/utils/yield'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx } from '../../_generated/server'
+import { error } from '../../errors'
 import { hasUnsettledTaskParts } from '../../lib/subagent'
 import type {
   RunningStream,
@@ -11,6 +13,7 @@ import type {
   StreamExecutionArgs,
   ThresholdCompactionArgs,
 } from '../../types'
+import { insertCommandChip } from '../chat/commandChips'
 import { senderIdentity } from '../chat/identities'
 import { scheduledCompactForStream } from '../chat/scheduling'
 import { pending as pendingMcp } from '../mcpOperations'
@@ -154,8 +157,7 @@ async function startThresholdCompaction(
 ) {
   const { boundary } = snapshot
   const output = await prepareSummaryOutput(ctx, snapshot, stream.invokedBy)
-  const event = await scheduledCompactForStream(ctx, stream)
-  if (event) await consumeEvent(ctx, event)
+  await announceThresholdCompaction(ctx, stream, output.processingMessageId)
 
   await ctx.db.patch(stream._id, {
     command: {
@@ -174,6 +176,29 @@ async function startThresholdCompaction(
     summaryBoundaryCreationTime: boundary._creationTime,
   })
   await scheduleStream(ctx, stream._id, { resetAttempt: true })
+}
+
+async function announceThresholdCompaction(
+  ctx: MutationCtx,
+  stream: RunningStream,
+  summaryMessageId: Id<'messages'>,
+) {
+  const event = await scheduledCompactForStream(ctx, stream)
+  if (event) {
+    await consumeEvent(ctx, event)
+    return
+  }
+
+  const summary = await ctx.db.get(summaryMessageId)
+  if (!summary) error('Compaction summary missing', 500)
+  await insertCommandChip(
+    ctx,
+    stream.sessionId,
+    stream.invokedBy,
+    { name: 'autoCompact', source: 'contextWindow' },
+    'ran',
+    summary,
+  )
 }
 
 async function prepareSummaryOutput(
@@ -230,6 +255,7 @@ async function detachContextNotes(ctx: MutationCtx, message: Doc<'messages'>) {
   for (const note of notes) {
     if (note.extra && 'anchorMessageId' in note.extra) {
       await ctx.db.patch(note._id, {
+        position: messagePosition(note),
         extra: {
           ...note.extra,
           anchorMessageId: undefined,

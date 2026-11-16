@@ -21,6 +21,7 @@ const page: WindowMessage[] = [
   {
     _id: 'm1' as Id<'messages'>,
     _creationTime: 1,
+    position: 'm1',
     selectedVersion: 1,
     versionCount: 1,
     role: 'assistant',
@@ -110,7 +111,7 @@ test('strict fallback skips the loaded segment or excludes an exhausted message'
   await mount()
   const before = {
     _id: 'm1',
-    _creationTime: 1,
+    position: 'm1',
     segmentIndex: 4,
     selectedVersion: 1,
     hasOlderSegments: true,
@@ -119,6 +120,7 @@ test('strict fallback skips the loaded segment or excludes an exhausted message'
     view.controls.extendOlder(before)
   })
   expect(source.calls.at(-1)).toMatchObject({
+    anchor: { position: 'm1' },
     anchorSegment: 3,
     anchorInclusive: true,
   })
@@ -133,6 +135,18 @@ test('strict fallback skips the loaded segment or excludes an exhausted message'
   expect(source.calls.at(-1)).toMatchObject({ anchorInclusive: false })
   expect(source.calls.at(-1)?.anchorSegment).toBeUndefined()
   await settle()
+})
+
+test('locates a saved message by ID even when its position is not loaded', async () => {
+  await mount()
+  await act(async () => {
+    view.controls.anchorAround({ _id: 'older-message', segmentIndex: 2 })
+  })
+  expect(source.calls.at(-1)).toMatchObject({
+    anchor: { messageId: 'older-message' },
+    anchorSegment: 2,
+    direction: 'newer',
+  })
 })
 
 test('waits for fresh data and invalidates a pending request on navigation', async () => {

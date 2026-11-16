@@ -160,10 +160,8 @@ export async function deleteMessagesFrom(
 
   const range = await ctx.db
     .query('messages')
-    .withIndex('by_sessionId', (q) =>
-      q
-        .eq('sessionId', message.sessionId)
-        .gte('_creationTime', message._creationTime),
+    .withIndex('by_sessionId_position', (q) =>
+      q.eq('sessionId', message.sessionId).gte('position', message.position),
     )
     .collect()
 

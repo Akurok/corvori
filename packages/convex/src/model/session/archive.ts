@@ -1,4 +1,3 @@
-import { orderContextNotes } from '@cv/core/context-notes'
 import type { MessageRole } from '@cv/core/types/roles'
 import type { Infer } from 'convex/values'
 
@@ -56,7 +55,7 @@ export async function exportOne(
 
   const messages = await ctx.db
     .query('messages')
-    .withIndex('by_sessionId', (q) => q.eq('sessionId', sessionId))
+    .withIndex('by_sessionId_position', (q) => q.eq('sessionId', sessionId))
     .filter(notACommandChip)
     .order('asc')
     .collect()
@@ -70,7 +69,7 @@ export async function exportOne(
       exportedAt: Date.now(),
       session: {
         title: resolveTitle(member.session.title, messagesWithParts),
-        messages: orderContextNotes(messagesWithParts).map(exportMessage),
+        messages: messagesWithParts.map(exportMessage),
       },
     },
     avatars,

@@ -18,6 +18,7 @@ const record = (id: string): MessageRecord =>
   ({
     sender: { type: 'agent', id: 'agent_1' },
     _id: id,
+    position: id.replace(/^M(\d+)$/, (_, n) => `M${n.padStart(4, '0')}`),
     selectedVersion: 1,
     segments: [{ index: 0, partCount: 1 }],
     hasOlderSegments: false,
@@ -84,13 +85,17 @@ function segmentedInput(indices: number[]): MessageStoreInput {
 
 function contextInput(ids: string[]): MessageStoreInput {
   const value = input(ids)
+  const order = ['U', 'W', 'S', 'A', 'N']
+  for (const [id, meta] of value.messageMetaByMessage) {
+    meta.position = String(order.indexOf(id))
+  }
   for (const [id, type] of [
     ['W', 'workspace'],
     ['S', 'skills'],
   ] as const) {
     if (!ids.includes(id)) continue
     value.messageMetaByMessage.set(id, {
-      ...record(id),
+      ...value.messageMetaByMessage.get(id)!,
       type,
       hidden: true,
       extra: { anchorMessageId: 'A' as never },
@@ -103,14 +108,14 @@ function contextInput(ids: string[]): MessageStoreInput {
 }
 
 describe('context note display order', () => {
-  test('places incoming notes before the streaming answer and keeps them there on completion', () => {
+  test('preserves the server order of incoming notes before a streaming answer', () => {
     const store = createMessageStore()
     const pending = contextInput(['U', 'A'])
     pending.results[1] = { ...message('A'), parts: [] }
     store.sync(pending)
 
-    const streaming = contextInput(['U', 'A', 'W', 'S'])
-    streaming.results[1].parts = [
+    const streaming = contextInput(['U', 'W', 'S', 'A'])
+    streaming.results[3].parts = [
       { type: 'text', text: 'Reply', state: 'streaming' },
     ]
     store.sync(streaming)
@@ -121,34 +126,34 @@ describe('context note display order', () => {
     )
     expect(store.getIsLast('A')).toBe(true)
 
-    store.sync(contextInput(['U', 'A', 'W', 'S']))
+    store.sync(contextInput(['U', 'W', 'S', 'A']))
     expect(store.getIds()).toEqual(['U', 'W', 'S', 'A'])
   })
 
-  test('retains the anchor when the live page starts at a newer note', () => {
+  test('retains earlier notes when the live page starts at their anchor', () => {
     const store = createMessageStore()
-    store.sync(contextInput(['U', 'A', 'W', 'S']))
-    store.sync(contextInput(['W', 'S', 'N']))
+    store.sync(contextInput(['U', 'W', 'S', 'A']))
+    store.sync(contextInput(['A', 'N']))
     expect(store.getIds()).toEqual(['U', 'W', 'S', 'A', 'N'])
     expect(store.getMessage('A')).not.toBeNull()
   })
 
   test('does not retain a deleted note that displayed before the live boundary', () => {
     const store = createMessageStore()
-    store.sync(contextInput(['U', 'A', 'W', 'S']))
-    store.sync(contextInput(['A', 'S']))
+    store.sync(contextInput(['U', 'W', 'S', 'A']))
+    store.sync(contextInput(['U', 'S', 'A']))
     expect(store.getIds()).toEqual(['U', 'S', 'A'])
     expect(store.getMessage('W')).toBeNull()
   })
 
-  test('keeps notes with unloaded anchors and reorders them when loading older history', () => {
+  test('keeps a note at the page edge when its anchor is unloaded', () => {
     const store = createMessageStore()
-    const tail = contextInput(['W', 'S', 'N'])
+    const tail = contextInput(['W', 'S'])
     tail.meta.isAtLiveTail = false
     store.sync(tail)
-    expect(store.getIds()).toEqual(['W', 'S', 'N'])
+    expect(store.getIds()).toEqual(['W', 'S'])
 
-    const history = contextInput(['U', 'A', 'W', 'S', 'N'])
+    const history = contextInput(['U', 'W', 'S', 'A', 'N'])
     history.meta.isAtLiveTail = false
     store.sync(history)
     expect(store.getIds()).toEqual(['U', 'W', 'S', 'A', 'N'])
@@ -156,10 +161,10 @@ describe('context note display order', () => {
 
   test('eviction removes a note from retention as well as display order', () => {
     const store = createMessageStore()
-    store.sync(contextInput(['U', 'A', 'W', 'S']))
-    store.sync(contextInput(['S', 'N']))
+    store.sync(contextInput(['U', 'W', 'S', 'A']))
+    store.sync(contextInput(['S', 'A', 'N']))
     store.evict('W')
-    store.sync(contextInput(['S', 'N']))
+    store.sync(contextInput(['S', 'A', 'N']))
     expect(store.getIds()).toEqual(['U', 'S', 'A', 'N'])
   })
 })

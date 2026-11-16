@@ -3,6 +3,7 @@ import type {
   MessageWindowMetadata,
 } from '@/lib/chat/message-store'
 import type { MessageRecord } from '@/lib/chat/types'
+import { messagePosition } from '@cv/core/message-position'
 
 import { type Part, message, meta } from './work-layout'
 
@@ -15,6 +16,7 @@ export function entry(time: number, parts: Part[], start = 0) {
         start,
       ),
       _creationTime: time,
+      position: messagePosition({ _id: `m${time}`, _creationTime: time }),
       sender: { type: 'agent', id: `agent${time}` },
       sizeBytes: parts.length,
     } as MessageRecord,

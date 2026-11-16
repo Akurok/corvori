@@ -36,6 +36,7 @@ export const commandStatusValidator = v.union(
 export const commandExtraValidator = v.object({
   name: commandNameValidator,
   argument: v.optional(v.string()),
+  source: v.optional(v.literal('contextWindow')),
   status: commandStatusValidator,
   error: v.optional(v.string()),
   reason: v.optional(v.string()),
