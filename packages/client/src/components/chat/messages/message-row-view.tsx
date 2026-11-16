@@ -30,9 +30,13 @@ import { HiddenChip } from './hidden-chip'
 import { MessageContext } from './message-context'
 import { MessageContextMenu } from './message-context-menu'
 import { MessageHeader } from './message-header'
-import { useMessageHighlight } from './message-highlight-context'
+import {
+  useMessageHighlight,
+  useMessageHighlightRef,
+} from './message-highlight-context'
 import { MessageVersionSwitcher } from './message-version-switcher'
 import { NoteGroupBlock } from './note-group-block'
+import { PresenceNotice } from './presence-notice'
 import { ReasoningHeader } from './reasoning-header'
 import { RenderGroup } from './render-group'
 import { WorkBlock } from './work-block'
@@ -62,6 +66,10 @@ export const MessageRowView = memo(function MessageRowView({
         placement={row.placement}
       />
     )
+  }
+
+  if (row.kind === 'presence') {
+    return <PresenceNotice message={message} record={messageMeta} />
   }
 
   return (
@@ -97,15 +105,7 @@ export const MessageRowView = memo(function MessageRowView({
 })
 
 function ContextResetRow({ messageId }: { messageId: string }) {
-  const registerElement = useMessageHighlight()?.registerElement
-  const target = useMemo(
-    () => ({ messageId, segmentIndex: null, groupIndex: null }),
-    [messageId],
-  )
-  const ref = useCallback(
-    (element: HTMLDivElement | null) => registerElement?.(target, element),
-    [registerElement, target],
-  )
+  const ref = useMessageHighlightRef(messageId)
 
   return (
     <div

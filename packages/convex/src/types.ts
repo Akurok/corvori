@@ -91,6 +91,8 @@ export type MessageExtra = {
   workspace: Infer<typeof V.workspaceExtraValidator>
   /** The announced session mode change. */
   mode: Infer<typeof V.modeExtraValidator>
+  /** A participant who joined or left the session. */
+  presence: Infer<typeof V.presenceExtraValidator>
   /** The announced invoked command, and how far it got. */
   command: Infer<typeof V.commandExtraValidator>
 }

@@ -52,6 +52,7 @@ export function hasVisibleOlderContent(
       case 'hidden':
       case 'note-group':
       case 'context-reset':
+      case 'presence':
         return true
       case 'footer':
         return Boolean(record.metadata?.error)

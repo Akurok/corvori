@@ -27,6 +27,7 @@ export const messageTypeValidator = v.union(
   v.literal('capabilities'),
   v.literal('command'),
   v.literal('mode'),
+  v.literal('presence'),
 )
 
 export const messageStatusValidator = v.union(
@@ -86,11 +87,24 @@ export const shellReportExtraValidator = v.object({
   userKilled: v.optional(v.boolean()),
 })
 
+export const presenceEventValidator = v.union(
+  v.literal('joined'),
+  v.literal('left'),
+)
+
+/** A participant joining or leaving, with their name at that moment. */
+export const presenceExtraValidator = v.object({
+  event: presenceEventValidator,
+  participant: senderValidator,
+  name: v.string(),
+})
+
 export const messageExtraValidator = v.union(
   reminderExtraValidator,
   workspaceExtraValidator,
   skillsExtraValidator,
   modeExtraValidator,
+  presenceExtraValidator,
   commandExtraValidator,
   shellReportExtraValidator,
 )

@@ -320,12 +320,11 @@ export function canMutateMessage(
   const isSessionOwner = session.ownerId === profile._id
   if (session.settings?.disabled && !isSessionOwner) return false
 
-  return (
-    record?.sender.type !== 'user' ||
-    record.sender.id === profile._id ||
-    isSessionOwner ||
-    minRole(profile.role, 'moderator')
-  )
+  if (isSessionOwner || minRole(profile.role, 'moderator')) return true
+  // Join/leave notices are a session record, not their participant's message
+  if (record?.type === 'presence') return false
+
+  return record?.sender.type !== 'user' || record.sender.id === profile._id
 }
 
 function isMessageProcessing(message: UIMessage): boolean {

@@ -45,6 +45,36 @@ describe('message rows', () => {
     expect(rows[0]).toMatchObject({ kind: 'header', messageId: 'system' })
   })
 
+  test('renders a join notice as a divider that breaks sender grouping', () => {
+    const records: Record<string, object> = {
+      before: { sender: { type: 'agent', id: 'agent_1' } },
+      joined: {
+        sender: { type: 'user', id: 'user_2' },
+        type: 'presence',
+        hidden: true,
+      },
+      after: { sender: { type: 'agent', id: 'agent_1' } },
+    }
+    const rows = buildRows(
+      ['before', 'joined', 'after'],
+      (id) => ({
+        id,
+        role: id === 'joined' ? 'system' : 'assistant',
+        parts: [textPart],
+      }),
+      (id) => records[id] as MessageRecord,
+      () => undefined,
+      { groupBySender: true },
+    )
+
+    expect(rows.find((row) => row.messageId === 'joined')).toMatchObject({
+      kind: 'presence',
+    })
+    expect(
+      rows.filter((row) => row.kind === 'header').map((row) => row.messageId),
+    ).toEqual(['before', 'after'])
+  })
+
   test('skips non-renderable step boundary parts', () => {
     const rows = buildRows(
       ['message-1'],
