@@ -242,8 +242,8 @@ test('nested refresh state survives failures and settings saves without changing
   const [resolved] = (await resolve(ctx, ctx.userId))[0].models
   expect(resolved).toMatchObject({
     label: 'Provider name',
-    contextWindow: 128000,
     inference: { temperature: 0.4 },
     discovered: { label: 'Provider name', contextWindow: 128000 },
   })
+  expect(resolved.contextWindow).toBeUndefined()
 })

@@ -8,6 +8,7 @@ const childStream = {
   sessionId: 'child',
   agentId: 'explorer',
   invokedBy: 'user_1',
+  command: { kind: 'invoke' },
   state: { processingMessageId: 'child_message' },
 } as never
 

@@ -138,6 +138,19 @@ export async function runScheduledEvent(
 
 export type StreamEndOutcome = 'complete' | 'failed' | 'stopped'
 
+export async function scheduledCompactForStream(
+  ctx: MutationCtx,
+  stream: Doc<'streams'>,
+) {
+  const event = await Events.getByKey(ctx, stream.sessionId, 'autoCompact')
+  if (!event || event.action.type !== 'compact_session') return null
+  if (event.targetStreamId && event.targetStreamId !== stream._id) {
+    // A missing target rearms the one-shot for the current invoke.
+    if (await ctx.db.get(event.targetStreamId)) return null
+  }
+  return event
+}
+
 /** Dispatches and cleans up events attached to a stream's end boundary. */
 export async function handleStreamEnd(
   ctx: MutationCtx,
@@ -153,14 +166,8 @@ export async function handleStreamEnd(
 
   if (stream.command.kind !== 'invoke') return false
 
-  const event = await Events.getByKey(ctx, stream.sessionId, 'autoCompact')
-  if (!event || event.action.type !== 'compact_session') return false
-  if (event.targetStreamId && event.targetStreamId !== stream._id) {
-    // An expired stream may be cleaned up by a membership read. Treat a missing
-    // old target as rearmed for this invoke.
-    if (await ctx.db.get(event.targetStreamId)) return false
-    await ctx.db.patch(event._id, { targetStreamId: undefined })
-  }
+  const event = await scheduledCompactForStream(ctx, stream)
+  if (!event) return false
 
   if (outcome === 'stopped' && !stream.stopAt) {
     await Events.cancel(ctx, event, 'Turn was stopped')

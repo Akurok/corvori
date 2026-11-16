@@ -10,6 +10,7 @@ import {
   isProviderRequestSizeError,
 } from '../../model/stream/retry'
 import type { StreamExecutionArgs } from '../../types'
+import { compactBeforeDispatch } from './engineCompaction'
 import { prepare } from './engineSetup'
 import { consumeProviderStep } from './engineStep'
 import { ProviderStreamFailure } from './engineStep'
@@ -52,6 +53,7 @@ export async function _stream(ctx: ActionCtx, execution: StreamExecutionArgs) {
       const setup = await prepare(ctx, execution)
       if (!setup) return
       lastSetup = setup
+      if (await compactBeforeDispatch(ctx, execution, setup)) return
 
       const {
         shouldContinue,
@@ -111,8 +113,13 @@ export async function _stream(ctx: ActionCtx, execution: StreamExecutionArgs) {
 
       if (!shouldContinue) {
         await recordStep(ctx, execution, false)
-        const { finishStreamChanges } = await import('../session/changes')
-        await finishStreamChanges(ctx, execution)
+        if (
+          claimed.command.kind !== 'compact' ||
+          !claimed.command.thresholdResume
+        ) {
+          const { finishStreamChanges } = await import('../session/changes')
+          await finishStreamChanges(ctx, execution)
+        }
         await ctx.runMutation(internal.streams._complete, { ...execution })
         return
       }

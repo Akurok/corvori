@@ -27,6 +27,7 @@ import {
   scheduleMessageEval,
   scheduleTitle,
   syncActivity,
+  textFromParts,
 } from '../messages'
 import { settleStream } from '../notificationRequests'
 import {
@@ -38,8 +39,10 @@ import { ownsExecution } from './execution'
 import { cleanUpOffloadedOutputs } from './lifecycleCleanup'
 import { killSessionJobs } from './lifecycleControl'
 import { reserveFollowUp, reserveHandOff } from './lifecycleReservations'
+import { honorSoftStop } from './stop'
 import { restoreEmptyRetry } from './stoppedRetry'
 import { deliverChildReport } from './subagents'
+import { resumeAfterThresholdCompaction } from './thresholdCompaction'
 
 /** A stream that has materialized the message it writes into. */
 export type OutputStream = Omit<Doc<'streams'>, 'state'> & {
@@ -71,6 +74,15 @@ export async function completeStream(
   const message = await ctx.db.get(processingMessageId)
   const row = await getProcessingSegmentRow(ctx, stream)
   const parts = row?.parts ?? []
+  const resumesInvocation =
+    stream.command.kind === 'compact' && !!stream.command.thresholdResume
+  if (resumesInvocation) {
+    if (await honorSoftStop(ctx, stream)) return
+    if (!textFromParts(parts).trim()) {
+      await failStream(ctx, stream, 'Compaction produced no summary text')
+      return
+    }
+  }
 
   // Have the plan survive compaction
   if (stream.command.kind === 'compact') {
@@ -93,9 +105,11 @@ export async function completeStream(
     await refreshHistoryContext(ctx, stream.sessionId)
   }
 
-  await discardStream(ctx, streamId)
-
-  const scheduledCompact = await handleStreamEnd(ctx, stream, 'complete')
+  let scheduledCompact = false
+  if (!resumesInvocation) {
+    await discardStream(ctx, streamId)
+    scheduledCompact = await handleStreamEnd(ctx, stream, 'complete')
+  }
 
   await scheduleMessageEval(ctx, {
     messageId: processingMessageId,
@@ -104,6 +118,11 @@ export async function completeStream(
     version: row?.version ?? 1,
     segmentIndex: row?.segmentIndex ?? 0,
   })
+
+  if (resumesInvocation) {
+    await resumeAfterThresholdCompaction(ctx, stream)
+    return
+  }
 
   const compactionNeedsFollowUp =
     stream.command.kind === 'compact' && stream.command.followUpAfterCompact
@@ -247,6 +266,12 @@ export async function _finalizeStopped(
   if (!stream.state.processingMessageId) {
     await discardStream(ctx, streamId)
     await handleStreamEnd(ctx, stream, 'stopped')
+    if (
+      stream.command.kind === 'invoke' &&
+      stream.command.skipThresholdCompaction
+    ) {
+      await deliverChildReport(ctx, stream, { kind: 'stopped' })
+    }
     await scheduleCommandDrain(ctx, stream.sessionId)
     return
   }
@@ -316,7 +341,13 @@ export async function demoteFailedSummary(
 ) {
   if (stream.command.kind !== 'compact') return
   if (!stream.state.processingMessageId) return
-  await ctx.db.patch(stream.state.processingMessageId, { type: undefined })
+  await ctx.db.patch(stream.state.processingMessageId, {
+    type: undefined,
+    ...(stream.command.thresholdResume && {
+      contextEligible: false,
+      summaryBoundaryCreationTime: undefined,
+    }),
+  })
 }
 
 export function preserveStoppedStreamError(

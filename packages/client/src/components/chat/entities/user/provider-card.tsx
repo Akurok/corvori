@@ -7,7 +7,7 @@ import {
   TrashButton,
 } from '@/components/ui'
 import { generateId } from '@/lib/utils'
-import { DEFAULT_MODEL_CONTEXT_WINDOW } from '@cv/core/discovered-model'
+import { initialContextWindow } from '@cv/core/discovered-model'
 import {
   type ProviderAuth,
   providerDefinition,
@@ -102,7 +102,7 @@ export function ProviderCard({
       models: [
         {
           id: '',
-          contextWindow: DEFAULT_MODEL_CONTEXT_WINDOW,
+          contextWindow: initialContextWindow(),
           reasoning,
           _clientId: clientId,
         },

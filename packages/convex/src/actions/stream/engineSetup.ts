@@ -244,6 +244,8 @@ export async function prepare(ctx: ActionCtx, execution: StreamExecutionArgs) {
 
   return {
     stream: data.stream,
+    modelId: data.session.model?.id,
+    contextWindow: credentials?.model?.contextWindow,
     agent: data.agent,
     output: data.output,
     workspace: hasFilesystemTools(operationPlan.toolNames)

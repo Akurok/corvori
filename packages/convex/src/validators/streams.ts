@@ -67,6 +67,7 @@ export const streamCommandValidator = v.union(
     kind: v.literal('invoke'),
     mode: v.optional(sessionModeValidator),
     preserveContextBoundary: v.optional(v.boolean()),
+    skipThresholdCompaction: v.optional(v.boolean()),
   }),
   v.object({
     kind: v.literal('compact'),
@@ -74,6 +75,12 @@ export const streamCommandValidator = v.union(
     preserveContextBoundary: v.optional(v.boolean()),
     followUpAfterCompact: v.optional(v.boolean()),
     autoCompact: v.optional(v.boolean()),
+    thresholdResume: v.optional(
+      v.object({
+        mode: v.optional(sessionModeValidator),
+        omitActiveMedia: v.optional(v.boolean()),
+      }),
+    ),
   }),
   v.object({
     kind: v.literal('impersonate'),
@@ -202,6 +209,13 @@ export const streamSchema = v.object({
 export const saveStreamCacheArgsValidator = v.object({
   ...saveSessionCacheArgsValidator.fields,
   ...streamExecutionArgsValidator.fields,
+})
+
+export const compactAtThresholdArgsValidator = v.object({
+  ...streamExecutionArgsValidator.fields,
+  modelId: v.string(),
+  contextWindow: v.number(),
+  environment: v.optional(v.record(v.string(), v.any())),
 })
 
 export const saveStreamEnvironmentArgsValidator = v.object({

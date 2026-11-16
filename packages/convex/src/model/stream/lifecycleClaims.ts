@@ -7,7 +7,7 @@ import { injectDueReminders } from '../chat/reminders'
 import { getProcessingSegmentRow, insertMessage } from '../messageContents'
 import { matchesExecution, ownsExecution } from './execution'
 import { scheduleStream, startExecution } from './execution'
-import { latestHistoryAnchor } from './historyBoundary'
+import { latestClaimAnchor } from './historyBoundary'
 import { renewStreamLease } from './lease'
 import { consumeInterjections } from './lifecycleProgress'
 import { honorSoftStop } from './stop'
@@ -50,7 +50,7 @@ export async function _claim(
 
   if (fresh && !preserveContextBoundary) {
     // Only compute the context boundary for a fresh segment to preserve tool approvals
-    const boundary = await latestHistoryAnchor(ctx, stream.sessionId)
+    const boundary = await latestClaimAnchor(ctx, stream)
     boundaryId = boundary?._id
     boundaryCreationTime = boundary?._creationTime
   } else if (stream.command.kind === 'invoke') {
@@ -127,7 +127,7 @@ export async function claimFreshTurn(ctx: MutationCtx, stream: Doc<'streams'>) {
     stream.command.kind === 'compact' && stream.command.preserveContextBoundary
   const boundary = preserveContextBoundary
     ? null
-    : await latestHistoryAnchor(ctx, stream.sessionId)
+    : await latestClaimAnchor(ctx, stream)
   const boundaryId = preserveContextBoundary
     ? stream.contextBoundaryMessageId
     : boundary?._id

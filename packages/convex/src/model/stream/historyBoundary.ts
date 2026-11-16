@@ -15,6 +15,21 @@ export function isHistoricalTurn(command: StreamCommand) {
   )
 }
 
+export function canCheckCompactionThreshold(command: StreamCommand) {
+  return (
+    command.kind === 'invoke' &&
+    !isHistoricalTurn(command) &&
+    !command.skipThresholdCompaction
+  )
+}
+
+/** Keeps the current input batch as the anchor after a threshold summary. */
+export function latestClaimAnchor(ctx: QueryCtx, stream: Doc<'streams'>) {
+  const resumed =
+    stream.command.kind === 'invoke' && stream.command.skipThresholdCompaction
+  return latestHistoryAnchor(ctx, stream.sessionId, undefined, !resumed)
+}
+
 export function historyUpperBound(stream: HistoryStream) {
   return (
     stream.contextBoundaryCreationTime ??
@@ -46,6 +61,7 @@ export async function latestHistoryAnchor(
   ctx: QueryCtx,
   sessionId: Id<'sessions'>,
   before?: number,
+  includeSummary = true,
 ) {
   const content = ctx.db
     .query('messages')
@@ -56,6 +72,9 @@ export async function latestHistoryAnchor(
         .eq('contextEligible', true)
       return before === undefined ? done : done.lt('_creationTime', before)
     })
+  const candidates = includeSummary
+    ? content
+    : content.filter((q) => q.neq(q.field('type'), 'summary'))
   const resets = ctx.db
     .query('messages')
     .withIndex('by_sessionId_type_status', (q) => {
@@ -66,7 +85,7 @@ export async function latestHistoryAnchor(
       return before === undefined ? done : done.lt('_creationTime', before)
     })
   const [message, reset] = await Promise.all([
-    content.order('desc').first(),
+    candidates.order('desc').first(),
     resets.order('desc').first(),
   ])
 

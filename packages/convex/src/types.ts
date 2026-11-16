@@ -228,6 +228,7 @@ export type ReserveHomeArgs = Infer<typeof V.reserveHomeArgsValidator>
 export type OperationAttemptArgs = Infer<typeof V.operationAttemptArgsValidator>
 export type OperationResult = Infer<typeof V.operationResultValidator>
 export type StreamExecutionArgs = Infer<typeof V.streamExecutionArgsValidator>
+export type ThresholdCompactionArgs = Infer<typeof V.compactAtThresholdArgsValidator> // prettier-ignore
 export type PatchStreamMessageArgs = Infer<typeof V.patchStreamMessageArgsValidator> // prettier-ignore
 export type RecordStreamStepArgs = Infer<typeof V.recordStreamStepArgsValidator>
 export type FailStreamArgs = Infer<typeof V.failStreamArgsValidator>

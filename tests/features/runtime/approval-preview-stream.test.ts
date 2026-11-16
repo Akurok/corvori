@@ -88,7 +88,11 @@ function streamSetup(
 ): Setup {
   return {
     isSubagent,
-    stream: { sessionId: isSubagent ? 'child' : 'parent', invokedBy: 'user' },
+    stream: {
+      sessionId: isSubagent ? 'child' : 'parent',
+      invokedBy: 'user',
+      command: { kind: 'invoke' },
+    },
     output: { _id: 'message', role: 'assistant', parts: [] },
     workspace: { workspaceId: 'workspace' },
     workspaceSessionId: 'parent',

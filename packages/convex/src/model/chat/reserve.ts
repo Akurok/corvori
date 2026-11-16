@@ -105,6 +105,7 @@ export async function reserveOrDebounceTurn(
     })
   } else if (activeStream?.command.kind === 'compact') {
     const command = activeStream.command
+    if (command.thresholdResume) return
     const followUpAfterCompact = command.followUpAfterCompact || !silent
     // Keep arrivals out of the summary and wake the agent after compaction
     await ctx.db.patch(activeStream._id, {

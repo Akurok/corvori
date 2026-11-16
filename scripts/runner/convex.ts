@@ -4,7 +4,16 @@ import {
   type SchemaMigrationState,
 } from '@cv/core/migration-version'
 import { randomBytes } from 'node:crypto'
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { type RunnerConfig, browserOrigins } from './config'
@@ -339,6 +348,7 @@ async function deployMigrationSchema(
       join(root, 'packages/core/src'),
       { recursive: true },
     )
+    await linkMigrationDependencies(config.convexRoot, root)
     await writeFile(
       join(root, 'convex.json'),
       `${JSON.stringify({ functions: 'packages/convex/src' }, null, 2)}\n`,
@@ -382,6 +392,21 @@ async function deployMigrationSchema(
     await deployConvex(manager, config, 'convex-deploy-migrations', root)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+}
+
+/** Preserve dependency lookup from the copied Convex and core sources. */
+export async function linkMigrationDependencies(
+  sourceRoot: string,
+  migrationRoot: string,
+) {
+  const directories = ['', 'packages/convex', 'packages/core']
+  for (const directory of directories) {
+    const source = join(sourceRoot, directory, 'node_modules')
+    if (existsSync(source)) {
+      const target = join(migrationRoot, directory, 'node_modules')
+      await symlink(source, target, 'junction')
+    }
   }
 }
 

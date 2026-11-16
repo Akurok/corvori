@@ -1,5 +1,5 @@
 import { fetchModelDetails } from '@cv/convex/model/provider/modelDetails'
-import { effectiveModel } from '@cv/core/discovered-model'
+import { effectiveModel, initialContextWindow } from '@cv/core/discovered-model'
 import { expect, test } from 'bun:test'
 
 test('optional Ollama details are deduplicated, bounded to two requests, and skipped for cached digests', async () => {
@@ -78,8 +78,17 @@ test('user overrides take precedence over optional discovered values', () => {
     }),
   ).toMatchObject({
     label: 'Provider',
-    contextWindow: 128000,
+    contextWindow: undefined,
     reasoning: model.discovered.reasoning,
     inference: undefined,
   })
+})
+
+test('only adding a model supplies a default context window', () => {
+  expect(initialContextWindow()).toBe(256_000)
+  expect(initialContextWindow({ id: 'unknown' })).toBe(256_000)
+  expect(initialContextWindow({ id: 'known', contextWindow: 128_000 })).toBe(
+    128_000,
+  )
+  expect(effectiveModel({ id: 'unknown' }).contextWindow).toBeUndefined()
 })
