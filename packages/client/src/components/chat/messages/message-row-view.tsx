@@ -39,6 +39,7 @@ import { NoteGroupBlock } from './note-group-block'
 import { PresenceNotice } from './presence-notice'
 import { ReasoningHeader } from './reasoning-header'
 import { RenderGroup } from './render-group'
+import { ReplyQuoteCard } from './reply-quote'
 import { WorkBlock } from './work-block'
 
 export type MessageRowViewProps = {
@@ -78,6 +79,8 @@ export const MessageRowView = memo(function MessageRowView({
         <ContextResetRow messageId={message.id} />
       ) : row.kind === 'header' ? (
         <HeaderRow row={row} message={message} messageMeta={messageMeta} />
+      ) : row.kind === 'reply' ? (
+        messageMeta?.replyTo && <ReplyQuoteCard quote={messageMeta.replyTo} />
       ) : row.kind === 'group' ? (
         <GroupRow
           row={row}

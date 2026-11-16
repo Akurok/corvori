@@ -71,6 +71,7 @@ function convertDoc(doc: MessageDoc): ConvertedEntry {
       type: doc.type,
       hidden: doc.hidden,
       extra: doc.extra,
+      replyTo: doc.replyTo,
       selectedVersion: doc.selectedVersion,
       versionCount: doc.versionCount,
       sizeBytes: doc.sizeBytes,

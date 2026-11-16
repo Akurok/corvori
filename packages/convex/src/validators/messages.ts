@@ -99,6 +99,18 @@ export const presenceExtraValidator = v.object({
   name: v.string(),
 })
 
+/** A snapshot of the message a reply quotes, taken at send time. */
+export const replyQuoteValidator = v.object({
+  /** Absent once the quoted message is deleted or was not copied along. */
+  target: v.optional(
+    v.object({ id: v.id('messages'), creationTime: v.number() }),
+  ),
+  sender: senderValidator,
+  senderName: v.optional(v.string()),
+  /** Markdown excerpt of the quoted message; empty when it has no text. */
+  text: v.string(),
+})
+
 export const messageExtraValidator = v.union(
   reminderExtraValidator,
   workspaceExtraValidator,
@@ -149,6 +161,8 @@ export const sendMessageArgsValidator = v.object({
   content: v.string(),
   role: v.optional(roleValidator),
   silent: v.optional(v.boolean()), // skips agent invocation (and eventually, notifications)
+  /** The message this one replies to, quoted above its content. */
+  replyToId: v.optional(v.id('messages')),
   attachments: v.optional(
     v.array(
       v.object({
@@ -251,6 +265,7 @@ export const messageSchema = v.object({
   hidden: v.optional(v.boolean()),
   /** Extra payload keyed by `type` (see MessageExtra). */
   extra: v.optional(messageExtraValidator),
+  replyTo: v.optional(replyQuoteValidator),
   /** Last transcript row represented by a completed summary. */
   summaryBoundaryCreationTime: v.optional(v.number()),
   selectedVersion: v.number(),

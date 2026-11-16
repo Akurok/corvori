@@ -19,6 +19,7 @@ import * as Memberships from '../session/memberships'
 import { removeDeliveriesForParts } from '../shellOutputDeliveries'
 import { collectToolOutputStorageIds } from '../stream/toolOutput'
 import { clearAnnouncedMode } from './notes'
+import { forgetQuotedMessage } from './replies'
 
 export async function editMessage(
   ctx: AuthMutationCtx,
@@ -219,6 +220,7 @@ async function deleteMessageDoc(
   }
 
   await deleteVersions(ctx, message._id)
+  await forgetQuotedMessage(ctx, message._id)
   await ctx.db.delete(message._id)
 
   const avatarId = message.senderAvatarId

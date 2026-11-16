@@ -35,6 +35,13 @@ export type MessageRow =
       grouped?: boolean
     }
   | {
+      /** The quote card above a reply's content. */
+      kind: 'reply'
+      key: string
+      messageId: string
+      grouped?: boolean
+    }
+  | {
       kind: 'group'
       key: string
       messageId: string
@@ -239,6 +246,16 @@ export function buildRows(
         reasoning,
       }
       rows.push(senderHeader)
+      first = false
+    }
+
+    if (meta?.replyTo) {
+      rows.push({
+        kind: 'reply',
+        key: firstKey(`r:${id}`),
+        messageId: id,
+        ...(first && grouped && { grouped }),
+      })
       first = false
     }
 

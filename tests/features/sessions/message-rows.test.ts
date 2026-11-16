@@ -75,6 +75,29 @@ describe('message rows', () => {
     ).toEqual(['before', 'after'])
   })
 
+  test('places a quote row above a reply, with or without a header', () => {
+    const records: Record<string, object> = {
+      first: { sender: { type: 'user', id: 'user_1' } },
+      reply: {
+        sender: { type: 'user', id: 'user_1' },
+        replyTo: { sender: { type: 'agent', id: 'agent_1' }, text: 'quoted' },
+      },
+    }
+    const kinds = (groupBySender: boolean) =>
+      buildRows(
+        ['first', 'reply'],
+        (id) => ({ id, role: 'user', parts: [textPart] }),
+        (id) => records[id] as MessageRecord,
+        () => undefined,
+        { groupBySender },
+      )
+        .filter((row) => row.messageId === 'reply')
+        .map((row) => row.kind)
+
+    expect(kinds(false)).toEqual(['header', 'reply', 'group'])
+    expect(kinds(true)).toEqual(['reply', 'group'])
+  })
+
   test('skips non-renderable step boundary parts', () => {
     const rows = buildRows(
       ['message-1'],
