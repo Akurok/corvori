@@ -34,6 +34,7 @@ import type * as actions_stream_attachmentHistory from "../actions/stream/attach
 import type * as actions_stream_cacheDiagnostics from "../actions/stream/cacheDiagnostics.js";
 import type * as actions_stream_engine from "../actions/stream/engine.js";
 import type * as actions_stream_engineApproval from "../actions/stream/engineApproval.js";
+import type * as actions_stream_engineCompaction from "../actions/stream/engineCompaction.js";
 import type * as actions_stream_engineLog from "../actions/stream/engineLog.js";
 import type * as actions_stream_engineOutput from "../actions/stream/engineOutput.js";
 import type * as actions_stream_engineSetup from "../actions/stream/engineSetup.js";
@@ -306,6 +307,7 @@ import type * as model_stream_retry from "../model/stream/retry.js";
 import type * as model_stream_stop from "../model/stream/stop.js";
 import type * as model_stream_stoppedRetry from "../model/stream/stoppedRetry.js";
 import type * as model_stream_subagents from "../model/stream/subagents.js";
+import type * as model_stream_thresholdCompaction from "../model/stream/thresholdCompaction.js";
 import type * as model_stream_toolOutput from "../model/stream/toolOutput.js";
 import type * as model_stream_transformers from "../model/stream/transformers.js";
 import type * as model_stream_usage from "../model/stream/usage.js";
@@ -485,6 +487,7 @@ declare const fullApi: ApiFromModules<{
   "actions/stream/cacheDiagnostics": typeof actions_stream_cacheDiagnostics;
   "actions/stream/engine": typeof actions_stream_engine;
   "actions/stream/engineApproval": typeof actions_stream_engineApproval;
+  "actions/stream/engineCompaction": typeof actions_stream_engineCompaction;
   "actions/stream/engineLog": typeof actions_stream_engineLog;
   "actions/stream/engineOutput": typeof actions_stream_engineOutput;
   "actions/stream/engineSetup": typeof actions_stream_engineSetup;
@@ -757,6 +760,7 @@ declare const fullApi: ApiFromModules<{
   "model/stream/stop": typeof model_stream_stop;
   "model/stream/stoppedRetry": typeof model_stream_stoppedRetry;
   "model/stream/subagents": typeof model_stream_subagents;
+  "model/stream/thresholdCompaction": typeof model_stream_thresholdCompaction;
   "model/stream/toolOutput": typeof model_stream_toolOutput;
   "model/stream/transformers": typeof model_stream_transformers;
   "model/stream/usage": typeof model_stream_usage;

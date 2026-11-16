@@ -32,11 +32,7 @@ import { hasStoredMcpOutput } from '../tool/availabilityRead'
 import { availableToolkits } from '../toolkits/access'
 import { toolkitSkillFingerprint } from '../toolkits/skillContext'
 import { ownsExecution } from './execution'
-import {
-  historyUpperBound,
-  latestContextReset,
-  resolveHistoryBoundary,
-} from './historyBoundary'
+import { resolveHistoryBoundary } from './historyBoundary'
 
 /** Returns a list of session ids that have ongoing streams. */
 export async function activeSessionIds(
@@ -255,23 +251,11 @@ async function getActiveMediaState(ctx: QueryCtx, stream: Doc<'streams'>) {
 
   if (!stream.contextBoundaryMessageId) return false
 
-  const upper = historyUpperBound(stream)
-  const reset = await latestContextReset(ctx, stream.sessionId, upper)
-  if (reset?._creationTime === upper) return false
-
-  const history = await ctx.db
-    .query('messages')
-    .withIndex('by_sessionId', (q) =>
-      q
-        .eq('sessionId', stream.sessionId)
-        .gt('_creationTime', reset?._creationTime ?? 0)
-        .lte('_creationTime', upper),
-    )
-    .order('asc')
-    .collect()
+  const { upper, floor, summary } = await resolveHistoryBoundary(ctx, stream)
+  const history = await listDoneHistory(ctx, stream.sessionId, floor, upper)
 
   const activeIds = activeAttachmentMessages(
-    history,
+    history.filter((message) => message._id !== summary?._id),
     stream.contextBoundaryMessageId,
   )
   if (activeIds.size === 0) return false

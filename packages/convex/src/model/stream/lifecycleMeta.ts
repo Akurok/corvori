@@ -47,6 +47,15 @@ export async function _saveMeta(
 
   await accumulateSessionUsage(ctx, stream.sessionId, usage, providerRequestId)
 
+  if (
+    stream.command.kind === 'invoke' &&
+    stream.command.skipThresholdCompaction
+  ) {
+    await ctx.db.patch(streamId, {
+      command: { ...stream.command, skipThresholdCompaction: undefined },
+    })
+  }
+
   if (row && stream.command.kind === 'invoke' && titleText?.trim()) {
     await scheduleTitle(ctx, stream.sessionId, titleText)
   }

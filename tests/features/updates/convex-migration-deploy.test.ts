@@ -1,10 +1,34 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { projectRoot } from '~/scripts/runner/config'
 import {
   disableSchemaValidation,
+  linkMigrationDependencies,
   migrationBootMode,
   runMigrationDeployment,
 } from '~/scripts/runner/convex'
+
+test('resolves root and workspace dependencies from an external migration project', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'convex-migration-deps-'))
+  const action = 'packages/convex/src/actions/io/attachmentImage.ts'
+  try {
+    await mkdir(join(root, action, '..'), { recursive: true })
+    await mkdir(join(root, 'packages/core/src'), { recursive: true })
+    await linkMigrationDependencies(projectRoot, root)
+
+    const installed = createRequire(join(projectRoot, action))
+    const migration = createRequire(join(root, action))
+    for (const name of ['convex', 'image-size-next']) {
+      expect(migration.resolve(name)).toBe(installed.resolve(name))
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true })
+  }
+})
 
 type Event = 'deploy:migration' | 'migrate' | 'deploy:strict' | 'complete'
 

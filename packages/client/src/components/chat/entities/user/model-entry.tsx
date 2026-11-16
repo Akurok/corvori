@@ -98,7 +98,7 @@ export function ModelRow({
           onChange={onChange}
         />
         <ContextWindowField
-          value={resolved.contextWindow}
+          value={model.contextWindow}
           onChange={(contextWindow) => onChange({ contextWindow })}
         />
       </div>
@@ -226,8 +226,9 @@ function ContextWindowField({
       <HelpPopoverLabel
         className="text-muted-foreground text-sm"
         help={md`
-          Maximum context tokens for this model. Only used for
-          visual feedback. Accepts shorthand like \`128k\` or \`1m\`.
+          Maximum context tokens for this model. The agent compacts at 90% of
+          this limit. Leave blank to disable automatic compaction. Accepts
+          shorthand like \`128k\` or \`1m\`.
         `}
       >
         Context window <span className="opacity-60">(optional)</span>

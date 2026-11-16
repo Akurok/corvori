@@ -11,6 +11,8 @@ export function providerFixture() {
     userId: 'owner',
     scheduler: { runAfter: async () => 'scheduled' },
     db: {
+      normalizeId: (table: string, id: string) =>
+        id.startsWith(`${table}-`) ? id : null,
       delete: async (id: string) => {
         for (const [table, rows] of tables)
           tables.set(

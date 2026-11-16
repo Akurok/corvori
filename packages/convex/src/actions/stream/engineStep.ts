@@ -256,7 +256,13 @@ export async function consumeProviderStep(
       execution,
     })
 
-    assertProviderStepOutput(outputTracker.hasOutput, finishReason)
+    const command = setup.stream.command
+    const needsSummaryText =
+      command.kind === 'compact' && command.thresholdResume
+    const hasExpectedOutput = needsSummaryText
+      ? Boolean(lastStep?.text.trim())
+      : outputTracker.hasOutput
+    assertProviderStepOutput(hasExpectedOutput, finishReason)
     await setup.cacheDiagnostics?.complete(
       usage,
       lastStep?.usage,

@@ -159,7 +159,14 @@ test('preview adoption requires the same owner and exact network configuration, 
     enabled: true,
     clientId: 'draft',
     previewId,
-    models: [{ id: 'one', source: 'discovered' as const, label: 'Custom' }],
+    models: [
+      {
+        id: 'one',
+        source: 'discovered' as const,
+        label: 'Custom',
+        contextWindow: 128_000,
+      },
+    ],
   }
   await expect(
     saveProviders(ctx, {
@@ -226,6 +233,7 @@ test('subscription models retain custom inference and advanced settings', async 
   const model = {
     id: 'one',
     source: 'discovered' as const,
+    contextWindow: 128_000,
     inference: { temperature: 0.7 },
     extraParameters: '{"max_output_tokens":400}',
   }
@@ -238,7 +246,11 @@ test('subscription models retain custom inference and advanced settings', async 
     generation: 'catalog',
   }
   await begin(ctx, { ...run, force: true })
-  await stage(ctx, { ...run, offset: 0, models: [{ id: 'one' }] })
+  await stage(ctx, {
+    ...run,
+    offset: 0,
+    models: [{ id: 'one', contextWindow: 128_000 }],
+  })
   await finish(ctx, run)
   await update(ctx, { providerId: id, models: [model] })
   await setModelInference(ctx, {
@@ -246,10 +258,37 @@ test('subscription models retain custom inference and advanced settings', async 
     inference: { temperature: 0.2 },
   })
   expect((await resolve(ctx, ctx.userId))[0].models[0]).toMatchObject({
-    contextWindow: 256_000,
+    contextWindow: 128_000,
     inference: { temperature: 0.2 },
     extraParameters: '{"max_output_tokens":400}',
   })
+
+  const draft = providerForm((await list(ctx))[0])
+  draft.models[0].contextWindow = undefined
+  await saveProviders(ctx, {
+    connections: [providerSaveInput(draft)],
+    removed: [],
+  })
+
+  const refreshed = {
+    ...run,
+    revision: (await ctx.db.get(id))?.configRevision ?? 0,
+    generation: 'refresh',
+  }
+  const saved = (await ctx.db.get(id))!
+  await ctx.db.patch(id, {
+    discovery: { ...saved.discovery, attemptedAt: Date.now() - 20_000 },
+  })
+  expect(await begin(ctx, { ...refreshed, force: true })).toBe(true)
+  await stage(ctx, {
+    ...refreshed,
+    offset: 0,
+    models: [{ id: 'one', contextWindow: 256_000 }],
+  })
+  await finish(ctx, refreshed)
+  const cleared = (await resolve(ctx, ctx.userId))[0].models[0]
+  expect(cleared.contextWindow).toBeUndefined()
+  expect(cleared.discovered?.contextWindow).toBe(256_000)
 })
 
 test('refreshing a changed endpoint preserves previously configured missing models as unavailable', async () => {

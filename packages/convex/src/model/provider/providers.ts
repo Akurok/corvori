@@ -1,15 +1,16 @@
+import { usableContextWindow } from '@cv/core/discovered-model'
 import { modelReference, parseModelReference } from '@cv/core/model-reference'
 import type { UIModel, UIModelConfig } from '@cv/core/types/providers'
 
 import type { Id } from '../../_generated/dataModel'
-import type { QueryCtx } from '../../_generated/server'
+import type { MutationCtx, QueryCtx } from '../../_generated/server'
 import type { AuthQueryCtx } from '../../functions'
 import type {
   ModelEntry,
   ModelProviderConfig,
   ModelSelection,
 } from '../../types'
-import { resolve as resolveProviders } from '../providers'
+import { listProviders, resolve as resolveProviders } from '../providers'
 import { resolveModelReasoning } from './known'
 
 export type ProviderCredentials = {
@@ -44,7 +45,7 @@ export async function list(ctx: AuthQueryCtx): Promise<UIModelConfig> {
             subscription: p.auth === 'chatgpt',
             available: m.available,
             label: m.label ?? m.id.trim(),
-            contextWindow: m.contextWindow,
+            contextWindow: usableContextWindow(m.contextWindow),
             local: p.id === 'ollama',
             reasoning: resolveModelReasoning(p.id, m.reasoning),
             inference: m.inference,
@@ -105,14 +106,44 @@ export function findModelSelection(
       ? modelReference(provider.connectionId, model.id.trim())
       : model.id.trim(),
     label: model.label ?? (provider.connectionId ? model.id.trim() : undefined),
-    contextWindow: model.contextWindow,
+    contextWindow: usableContextWindow(model.contextWindow),
     reasoning: resolveModelReasoning(provider.id, model.reasoning),
     extraParameters: model.extraParameters,
   }
 }
 
-function findConnection(
-  providers: ModelProviderConfig[],
+/** Looks up the current saved limit without resolving provider credentials. */
+export async function getSavedContextWindow(
+  ctx: QueryCtx | MutationCtx,
+  ownerId: Id<'users'>,
+  modelId: string,
+) {
+  const reference = parseModelReference(modelId)
+  const provider = reference.connectionId
+    ? await readOwnedConnection(ctx, ownerId, reference.connectionId)
+    : findConnection(await listProviders(ctx, ownerId), reference)
+  const model = provider?.models.find((m) => m.id.trim() === reference.modelId)
+  return usableContextWindow(model?.contextWindow)
+}
+
+async function readOwnedConnection(
+  ctx: QueryCtx | MutationCtx,
+  ownerId: Id<'users'>,
+  connectionId: string,
+) {
+  const id = ctx.db.normalizeId('modelProviders', connectionId)
+  if (!id) return null
+  const provider = await ctx.db.get(id)
+  return provider?.ownerId === ownerId && provider.enabled ? provider : null
+}
+
+type ConnectionModels = Pick<
+  ModelProviderConfig,
+  'connectionId' | 'enabled' | 'models'
+>
+
+function findConnection<T extends ConnectionModels>(
+  providers: T[],
   reference: ReturnType<typeof parseModelReference>,
 ) {
   const matches = providers.filter(

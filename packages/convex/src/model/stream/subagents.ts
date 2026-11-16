@@ -412,7 +412,12 @@ async function resolveReport(
     return { status: 'failed', text: `Sub-agent failed: ${outcome.message}` }
   }
 
-  const report = truncateReport(await childReportText(ctx, childStream))
+  const command = childStream.command
+  const interruptedSummary =
+    command.kind === 'compact' && command.thresholdResume
+  const report = interruptedSummary
+    ? ''
+    : truncateReport(await childReportText(ctx, childStream))
 
   if (outcome.kind === 'stopped') {
     const note = '[The sub-agent was stopped before finishing.]'

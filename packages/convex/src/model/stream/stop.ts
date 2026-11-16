@@ -60,7 +60,9 @@ export async function requestImmediateStop(
   options?: StopOptions,
 ) {
   if (stream.state.phase === 'stopping') return 'finalizing' as const
-  if (!stream.state.processingMessageId) {
+  const resumed =
+    stream.command.kind === 'invoke' && stream.command.skipThresholdCompaction
+  if (!stream.state.processingMessageId && !resumed) {
     await settleStream(ctx, stream._id, 'cancelled')
     await cancelScheduledExecution(ctx, stream)
     await finishChanges(ctx, stream._id)

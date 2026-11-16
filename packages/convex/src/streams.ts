@@ -13,6 +13,7 @@ import * as StreamMeta from './model/stream/lifecycleMeta'
 import * as ProviderRequests from './model/stream/providerRequests'
 import * as StreamReads from './model/stream/reads'
 import * as StreamSubagents from './model/stream/subagents'
+import { _compactAtThreshold as compactAtThreshold } from './model/stream/thresholdCompaction'
 import { filesystemToolContext } from './model/tool/filesystemContext'
 import { assertToolAccess } from './model/tool/liveAccess'
 import * as V from './validators/streams'
@@ -59,6 +60,11 @@ export const _patchMessage = internalMutation({
 export const _continue = internalMutation({
   args: V.streamExecutionArgsValidator.fields,
   handler: StreamLifecycle._continue,
+})
+
+export const _compactAtThreshold = internalMutation({
+  args: V.compactAtThresholdArgsValidator.fields,
+  handler: compactAtThreshold,
 })
 
 export const _recordStep = internalMutation({

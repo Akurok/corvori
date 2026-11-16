@@ -1439,7 +1439,7 @@ Key backend domains:
 `migrations.ts` holds the `@convex-dev/migrations` runner, the append-only
 public release migration list, and stable internal endpoints for boot
 coordination. `packages/core/src/migration-version.ts` establishes pre-release
-schema version 34 as the pre-release baseline; later manifest entries advance the
+schema version 37 as the pre-release baseline; later manifest entries advance the
 version from that baseline. The public migration manifest is currently empty.
 A singleton
 `releaseState` document records the last strictly completed version and any

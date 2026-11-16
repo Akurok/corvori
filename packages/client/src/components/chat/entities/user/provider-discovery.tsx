@@ -3,7 +3,7 @@ import { providerInput } from '@/lib/provider-settings'
 import { generateId } from '@/lib/utils'
 import { api } from '@cv/convex/_generated/api'
 import type { Id } from '@cv/convex/_generated/dataModel'
-import { modelMetadata } from '@cv/core/discovered-model'
+import { initialContextWindow, modelMetadata } from '@cv/core/discovered-model'
 import type { DiscoveredModel } from '@cv/core/model-discovery'
 import { providerFeatures } from '@cv/core/provider-registry'
 import { useAction, useMutation, useQuery } from 'convex/react'
@@ -164,6 +164,7 @@ export function ProviderDiscovery({ provider, onChange }: Props) {
       ...latest.models,
       {
         id: model.id,
+        contextWindow: initialContextWindow(enriched),
         discovered: modelMetadata(enriched),
         source: 'discovered',
         available: true,
