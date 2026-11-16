@@ -8,6 +8,7 @@ import {
 import { type StreamStore, createStreamStore } from '@/lib/chat/stream-store'
 import { api } from '@cv/convex/_generated/api'
 import type { Id } from '@cv/convex/_generated/dataModel'
+import type { ActiveStream } from '@cv/convex/types'
 import type { ChatStatus, UIMessage } from 'ai'
 import { useQuery } from 'convex/react'
 import {
@@ -68,8 +69,17 @@ export function useStreamAwaitingApproval(): boolean {
   return useStreamRawStatus() === 'awaiting_approval'
 }
 
+/** True while the turn waits on questions, not on a yield request. */
 export function useStreamAwaitingAnswer(): boolean {
-  return useStreamRawStatus() === 'awaiting_input'
+  const awaitingInput = useStreamRawStatus() === 'awaiting_input'
+  const yieldRequest = useStreamYield()
+  return awaitingInput && !yieldRequest
+}
+
+/** The yield request the parked turn is waiting on, if any. */
+export function useStreamYield(): ActiveStream['yield'] {
+  const store = useStreamStore()
+  return useSyncExternalStore(store.subscribe, store.getYield)
 }
 
 /** Scheduled claim time of a debounced stream (agent debounce mechanism). */

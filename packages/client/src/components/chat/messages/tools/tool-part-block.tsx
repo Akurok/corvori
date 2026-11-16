@@ -10,6 +10,7 @@ import { ShellGroupBlock } from './shell-group-block'
 import { SubagentBlock } from './subagent-block'
 import { EditTodoBlock, WriteTodoBlock } from './todo-block'
 import { WebFetchBlock } from './web-fetch-block'
+import { YieldBlock } from './yield-block'
 
 export type ToolRendererProps = {
   part: ToolUIPart
@@ -49,6 +50,8 @@ export function ToolPartBlock(props: ToolRendererProps) {
       return <EditTodoBlock {...props} />
     case 'ask':
       return <QuestionBlock {...props} />
+    case 'yield':
+      return <YieldBlock {...props} />
     default:
       return <ToolBlock {...props} />
   }

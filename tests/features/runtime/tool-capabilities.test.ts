@@ -53,8 +53,8 @@ function input(
 }
 
 test('every built-in is uniquely registered and its factory builds the selected capability', async () => {
-  expect(BUILTIN_TOOL_NAMES).toHaveLength(25)
-  expect(new Set(BUILTIN_TOOL_NAMES).size).toBe(25)
+  expect(BUILTIN_TOOL_NAMES).toHaveLength(26)
+  expect(new Set(BUILTIN_TOOL_NAMES).size).toBe(26)
   for (const capability of TOOL_CAPABILITIES) {
     const manifest = resolveToolManifest(input([capability.name]))
     expect(manifest.names).toEqual([...capability.tools])

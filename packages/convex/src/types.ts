@@ -176,6 +176,8 @@ export type AttachmentCursorSettings = Infer<typeof V.attachmentCursorSettings>
 
 export type AttachmentImageDimensions = Infer<typeof V.attachmentImageDimensions> // prettier-ignore
 
+export type YieldRequest = Infer<typeof V.yieldRequestValidator>
+
 export type SaveSessionCacheArgs = Infer<typeof V.saveSessionCacheArgsValidator>
 export type SendMessageArgs = Infer<typeof V.sendMessageArgsValidator>
 export type ConfirmAttachmentArgs = Infer<typeof V.confirmAttachmentArgsValidator> // prettier-ignore
@@ -304,3 +306,5 @@ export type PrepareCapabilitiesArgs = Infer<typeof V.prepareCapabilitiesArgsVali
 export type AssertToolAccessArgs = Infer<typeof V.assertToolAccessArgsValidator>
 export type ShellDeliveryPositionArgs = Infer<typeof V.shellDeliveryPositionArgsValidator> // prettier-ignore
 export type SaveAttachmentCursorArgs = Infer<typeof V.saveAttachmentCursorArgs>
+export type ResolveYieldArgs = Infer<typeof V.resolveYieldArgsValidator>
+export type YieldRequestArgs = Infer<typeof V.yieldRequestArgsValidator>

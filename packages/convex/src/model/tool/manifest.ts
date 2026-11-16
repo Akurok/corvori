@@ -154,6 +154,7 @@ function builtinEligible(
   const subagent = !!data.session.parent
   switch (name) {
     case 'ask':
+    case 'yield':
     case 'enter_plan_mode':
     case 'exit_plan_mode':
       return !subagent

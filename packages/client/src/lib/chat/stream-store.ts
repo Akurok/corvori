@@ -31,6 +31,7 @@ export function createStreamStore() {
     getInvokedBy: (): Id<'users'> | undefined => stream?.invokedBy,
     getStreamId: (): Id<'streams'> | undefined => stream?._id,
     getFireAt: (): number | undefined => stream?.fireAt,
+    getYield: (): ActiveStream['yield'] => stream?.yield,
     getRetryAt: (): number | undefined => stream?.retryAt,
     getRetryError: (): string | undefined => stream?.retryError,
     getAttempt: (): number | undefined => stream?.attempt,

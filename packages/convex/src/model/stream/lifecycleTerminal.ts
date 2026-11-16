@@ -1,10 +1,15 @@
 import { settleAbortedAskParts } from '@cv/core/utils/ask'
+import { settleAbortedYieldParts } from '@cv/core/utils/yield'
 
 import { internal } from '../../_generated/api'
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx } from '../../_generated/server'
 import { settleAbandonedTaskParts } from '../../lib/subagent'
-import type { FailStreamArgs, StreamExecutionArgs } from '../../types'
+import type {
+  FailStreamArgs,
+  StreamExecutionArgs,
+  StreamState,
+} from '../../types'
 import { expireStreamTransfers } from '../attachmentTransfers'
 import { cleanUpGeneratedAttachments } from '../attachments'
 import { finishChanges } from '../changes'
@@ -32,9 +37,19 @@ import { createPlanLinkPart, getBySession as getPlan } from '../plans'
 import { ownsExecution } from './execution'
 import { cleanUpOffloadedOutputs } from './lifecycleCleanup'
 import { killSessionJobs } from './lifecycleControl'
-import { reserveFollowUp } from './lifecycleReservations'
+import { reserveFollowUp, reserveHandOff } from './lifecycleReservations'
 import { restoreEmptyRetry } from './stoppedRetry'
 import { deliverChildReport } from './subagents'
+
+/** A stream that has materialized the message it writes into. */
+export type OutputStream = Omit<Doc<'streams'>, 'state'> & {
+  state: Extract<StreamState, { processingMessageId: Id<'messages'> }>
+}
+
+export type CompletionOptions = {
+  /** Reserves the active agent's next turn even without unconsumed messages. */
+  handOff?: { invokedBy: Id<'users'> }
+}
 
 export async function _complete(
   ctx: MutationCtx,
@@ -42,7 +57,16 @@ export async function _complete(
 ) {
   const stream = await ctx.db.get(streamId)
   if (!ownsExecution(stream, { streamId, generation })) return
+  await completeStream(ctx, stream)
+}
 
+/** Finalizes a turn's output and hands the session to whatever comes next. */
+export async function completeStream(
+  ctx: MutationCtx,
+  stream: OutputStream,
+  options?: CompletionOptions,
+) {
+  const streamId = stream._id
   const processingMessageId = stream.state.processingMessageId
   const message = await ctx.db.get(processingMessageId)
   const row = await getProcessingSegmentRow(ctx, stream)
@@ -96,6 +120,11 @@ export async function _complete(
     // A retry of the newest message becomes the session's tail
     await syncActivity(ctx, stream.sessionId, parts)
     await scheduleTitle(ctx, stream.sessionId)
+  }
+
+  if (options?.handOff && !followUpReserved) {
+    const { invokedBy } = options.handOff
+    followUpReserved = await reserveHandOff(ctx, stream, invokedBy)
   }
 
   // A finished sub-agent turn reports back to its parent session
@@ -228,7 +257,9 @@ export async function _finalizeStopped(
   // Task calls the turn never got to spawn can't report back
   const rawParts = row?.parts ?? []
   const taskSettled = settleAbandonedTaskParts(rawParts) ?? rawParts
-  const parts = finalizeMessageParts(settleAbortedAskParts(taskSettled))
+  const parts = finalizeMessageParts(
+    settleAbortedYieldParts(settleAbortedAskParts(taskSettled)),
+  )
   const metadata = preserveStoppedStreamError(
     row?.metadata,
     stream.state.retryError,

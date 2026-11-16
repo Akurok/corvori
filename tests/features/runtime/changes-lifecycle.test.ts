@@ -206,6 +206,36 @@ describe('changes lifecycle', () => {
     expect(await changeSummary(f.ctx, args)).toBeNull()
   })
 
+  test('hides pending captures until files are recorded', async () => {
+    const f = fixture()
+    const row = (await prepareChanges(f.ctx, prepareArgs))!
+    await finishChanges(f.ctx, prepareArgs.streamId)
+
+    const args = { messageId: 'message' as never, version: 1 }
+    expect(await changeSummary(f.ctx, args)).toBeNull()
+
+    await appendChanges(f.ctx, {
+      changeSetId: row._id,
+      files: [file('one')],
+    })
+    expect(await changeSummary(f.ctx, args)).toMatchObject({
+      phase: 'capturing',
+      fileCount: 1,
+    })
+
+    await publishChanges(f.ctx, {
+      changeSetId: row._id,
+      fileCount: 1,
+      additions: 1,
+      deletions: 1,
+      issues: [],
+    })
+    expect(await changeSummary(f.ctx, args)).toMatchObject({
+      phase: 'ready',
+      fileCount: 1,
+    })
+  })
+
   test('keeps capture failures visible instead of publishing a false empty summary', async () => {
     const f = fixture()
     const row = (await prepareChanges(f.ctx, prepareArgs))!
@@ -217,6 +247,9 @@ describe('changes lifecycle', () => {
       phase: 'unavailable',
       error: 'Storage unavailable',
     })
+    expect(
+      await changeSummary(f.ctx, { messageId: 'message' as never, version: 1 }),
+    ).toMatchObject({ phase: 'unavailable', error: 'Storage unavailable' })
     await expect(
       restoreChanges(f.ctx, {
         changeSetId: row._id,

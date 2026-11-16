@@ -1,5 +1,6 @@
 import { hasPendingQuestions, isPendingAskPart } from '@cv/core/utils/ask'
 import { hasPendingToolApprovals } from '@cv/core/utils/tool-parts'
+import { hasPendingYield } from '@cv/core/utils/yield'
 
 import type { Doc, Id } from '../../_generated/dataModel'
 import type { MutationCtx } from '../../_generated/server'
@@ -43,6 +44,7 @@ import {
 } from './lifecycle'
 import { _recordStep } from './lifecycleProgress'
 import { honorSoftStop } from './stop'
+import { requestYield } from './yieldRequest'
 
 /** Reports stay under the segment split budget. The full transcript lives in the child session. */
 const REPORT_MAX_CHARS = 32 * 1024
@@ -112,6 +114,12 @@ export async function _suspendStep(
       )
       await patchSegmentParts(ctx, stream.state.processingMessageId, row, parts)
     }
+  }
+
+  if (!session.parent && hasPendingYield(parts)) {
+    const outcome = await requestYield(ctx, { stream, session, row, parts })
+    if (outcome.parked) return 'suspended'
+    parts = outcome.parts
   }
 
   if (!session.parent && hasPendingQuestions(parts)) {

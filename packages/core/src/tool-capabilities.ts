@@ -29,6 +29,13 @@ export const TOOL_CAPABILITIES = [
     tools: ['task'],
   },
   {
+    name: 'yield',
+    label: 'Hand off turns',
+    description: 'Let another agent respond next.',
+    category: 'general',
+    tools: ['yield'],
+  },
+  {
     name: 'web_fetch',
     label: 'Web fetch',
     description: 'Fetch a web page as readable text.',
