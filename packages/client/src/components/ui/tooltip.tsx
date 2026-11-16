@@ -38,6 +38,7 @@ function TooltipProvider({
 }
 
 function TooltipRoot({
+  disableHoverablePopup = true,
   longPress = false,
   longPressDelay = DEFAULT_LONG_PRESS_DELAY,
   longPressCloseDelay = DEFAULT_LONG_PRESS_CLOSE_DELAY,
@@ -56,7 +57,12 @@ function TooltipRoot({
         handle,
       }}
     >
-      <TooltipPrimitive.Root data-slot="tooltip" handle={handle} {...props} />
+      <TooltipPrimitive.Root
+        data-slot="tooltip"
+        disableHoverablePopup={disableHoverablePopup}
+        handle={handle}
+        {...props}
+      />
     </TooltipLongPressContext.Provider>
   )
 }
@@ -116,7 +122,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            'bg-m3-inverse-surface text-m3-inverse-on-surface popup-motion z-55 w-fit max-w-xs origin-(--transform-origin) rounded-md px-3 py-1.5 text-xs wrap-break-word',
+            'bg-m3-inverse-surface text-m3-inverse-on-surface popup-fade z-55 w-fit max-w-xs rounded-md px-3 py-1.5 text-xs wrap-break-word',
             className,
           )}
           {...props}

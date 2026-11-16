@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Editor } from '@tiptap/core'
 
-test('a blank line after a prompt list takes up one editable line', async ({
+test('prompt lists have even spacing and preserve editable blank lines', async ({
   page,
 }) => {
   await page.goto('/?fixture=provider-connections')
@@ -13,6 +13,7 @@ test('a blank line after a prompt list takes up one editable line', async ({
     current.commands.setContent({
       type: 'doc',
       content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Rules:' }] },
         {
           type: 'bulletList',
           content: [
@@ -42,12 +43,11 @@ test('a blank line after a prompt list takes up one editable line', async ({
         .slice(1)
         .map((block, index) => block.top - blocks[index].bottom)
     })
-  await expect.poll(gaps).toEqual([0, 0])
+  await expect.poll(gaps).toEqual([0, 0, 0])
 
   await editor.press('ControlOrMeta+End')
   await editor.press('Home')
   await editor.press('Backspace')
-  await expect(editor.locator(':scope > p')).toHaveCount(1)
-  await expect(editor.locator(':scope > p')).toHaveText('Request')
-  await expect.poll(gaps).toEqual([0])
+  await expect(editor.locator(':scope > p')).toHaveText(['Rules:', 'Request'])
+  await expect.poll(gaps).toEqual([0, 0])
 })

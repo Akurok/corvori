@@ -156,8 +156,8 @@ function TabsTrigger({ className, value, ...props }: TabsPrimitive.Tab.Props) {
         className={cn(
           "z-10 inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent text-sm font-medium whitespace-nowrap focus-visible:ring-1 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
           'data-active:text-m3-on-secondary data-active:bg-transparent',
-          '[--td:230ms] data-active:[--td:0ms]',
-          '[transition:color_230ms_ease_var(--td),background-color_var(--td)]!',
+          '[--tab-color-delay:230ms] data-active:[--button-hover-duration:0ms] data-active:[--tab-color-delay:0ms]',
+          '[transition:color_230ms_ease_var(--tab-color-delay),background-color_var(--button-hover-duration)]!',
           'h-10 rounded-full border-0 px-5 py-2 hover:ring-0',
           className,
         )}
@@ -173,7 +173,7 @@ function TabsTrigger({ className, value, ...props }: TabsPrimitive.Tab.Props) {
       data-value={value}
       render={<RippleButton variant="surface" />}
       className={cn(
-        'data-active:bg-m3-surface-container-high size-full flex-1 rounded-none px-3 py-1.5 text-sm font-medium transition-colors data-active:shadow-none',
+        'data-active:bg-m3-surface-container-high size-full flex-1 rounded-none px-3 py-1.5 text-sm font-medium data-active:shadow-none',
         variant === 'hug'
           ? 'border-0'
           : 'border-input/80 rounded-t-lg border border-b-0',

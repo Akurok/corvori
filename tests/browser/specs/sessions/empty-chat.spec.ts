@@ -186,6 +186,10 @@ test('clipped descriptions stay inside cards and open independently of agent sel
         }),
       )
       .toBe(true)
+    // A viewport resize can leave the pointer on the same card after Escape.
+    await page
+      .getByRole('heading', { name: 'Who would you like to work with?' })
+      .hover()
     await card.hover()
     const popover = page.getByRole('tooltip')
     await expect(popover).toBeVisible()

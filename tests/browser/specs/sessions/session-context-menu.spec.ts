@@ -19,6 +19,81 @@ function sessionRow(page: Page, title = longTitle, group = 'a') {
     })
 }
 
+function sessionTooltip(page: Page, title: string) {
+  return page
+    .locator('[data-slot="tooltip-content"]')
+    .filter({ hasText: title })
+}
+
+test('hover fades in on the new button and clears immediately from the previous one', async ({
+  page,
+}) => {
+  await page.goto('/?fixture=session-folders')
+  const first = page.getByRole('button', { name: 'New folder', exact: true })
+  const second = page.getByRole('button', { name: 'Session list options' })
+  for (const button of [first, second]) {
+    await button.evaluate((element) => {
+      let fades = 0
+      element.addEventListener('transitionrun', (event) => {
+        if (
+          event instanceof TransitionEvent &&
+          event.target === element &&
+          event.propertyName === 'background-color'
+        ) {
+          element.setAttribute('data-background-fades', String(++fades))
+        }
+      })
+    })
+  }
+
+  await first.hover()
+  await expect(first).toHaveAttribute('data-background-fades', '1')
+  await second.hover()
+  await expect(second).toHaveAttribute('data-background-fades', '1')
+  await expect(first).toHaveAttribute('data-background-fades', '1')
+})
+
+test('keeps a session row hovered while its tooltip opens', async ({
+  page,
+}) => {
+  await page.goto('/?fixture=session-folders')
+  const row = sessionRow(page, 'Portfolio chat', 'recents')
+  await row.evaluate((element) => {
+    element.addEventListener(
+      'pointerleave',
+      () => element.setAttribute('data-pointer-left', ''),
+      { once: true },
+    )
+  })
+  const bounds = (await row.boundingBox())!
+  // The tooltip arrow used to cross the top edge during its entrance.
+  await row.hover({ position: { x: bounds.width / 2, y: 0.5 } })
+
+  const tooltip = sessionTooltip(page, 'Portfolio chat')
+  await expect(tooltip).toHaveCSS('opacity', '1')
+  await expect(row).not.toHaveAttribute('data-pointer-left', '')
+})
+
+test('a session title tooltip lets the pointer reach the neighboring row', async ({
+  page,
+}) => {
+  await page.goto('/?fixture=session-folders')
+  const upperRow = sessionRow(page, 'Portfolio chat', 'recents')
+  const lowerRow = sessionRow(page, 'Design chat', 'recents')
+  await lowerRow.hover()
+  const tooltip = sessionTooltip(page, 'Design chat')
+  await expect(tooltip).toHaveCSS('opacity', '1')
+
+  // This tooltip sits over part of the row immediately above its trigger.
+  const bounds = (await tooltip.boundingBox())!
+  const x = bounds.x + bounds.width / 2
+  const y = bounds.y + bounds.height / 2
+  await page.mouse.move(x, y)
+  await expect
+    .poll(() => upperRow.evaluate((element) => element.matches(':hover')))
+    .toBe(true)
+})
+
 test('keeps the menu open during title animation and its reset, then selects an action', async ({
   page,
 }) => {
@@ -105,7 +180,7 @@ test('supports reduced motion without scrolling the title', async ({
       .getByText(longTitle, { exact: true })
       .evaluate((element) => element.scrollLeft),
   ).toBe(0)
-  await page.getByRole('menuitem', { name: 'Rename', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Rename…', exact: true }).click()
   await expect(page.getByRole('menu')).toHaveCount(0)
 })
 
